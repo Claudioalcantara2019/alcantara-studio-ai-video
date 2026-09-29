@@ -1,22 +1,28 @@
 # GPU Worker
 
-Backend de processamento do Alcantara Studio AI Video.
+Worker FastAPI que recebe vídeo + música, executa MuseTalk 1.5 e devolve o MP4.
 
-Este serviço foi separado da aplicação Next.js porque a inferência do MuseTalk precisa de GPU.
+## API
 
-## Contrato
+GET /health
 
 POST /generate
-
-Multipart:
-- video: vídeo-base
-- audio: música
+- video: MP4
+- audio: MP3/WAV
 - format: 16:9 ou 9:16
 
-Resposta JSON com jobId.
+GET /jobs/{jobId}
 
-GET /health verifica se o worker está ativo.
+GET /jobs/{jobId}/result
 
-## Próxima etapa
+## Modelos
 
-O worker será conectado ao ambiente MuseTalk validado no Tesla T4.
+Os pesos não ficam no GitHub nem dentro do código-fonte. Eles devem existir no diretório models da instalação do MuseTalk no ambiente GPU.
+
+A configuração segue a instalação oficial do MuseTalk 1.5: Python 3.10, PyTorch 2.0.1 com CUDA 11.8 e os pacotes MMLab exigidos pelo projeto.
+
+O código oficial usa scripts/inference.py para a inferência normal.
+
+## Observação
+
+O Dockerfile instala o código e as dependências do MuseTalk, mas o download dos pesos é separado para permitir armazenamento persistente e evitar reconstruir uma imagem de vários gigabytes a cada alteração do código.

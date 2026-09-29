@@ -10,25 +10,51 @@ export default function Home() {
   const [format, setFormat] = useState<Format>("16:9");
   const [status, setStatus] = useState("Pronto para receber os arquivos.");
   const [busy, setBusy] = useState(false);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
 
-  const videoName = useMemo(
-    () => video?.name ?? "Nenhum vídeo selecionado",
-    [video]
-  );
-
-  const audioName = useMemo(
-    () => audio?.name ?? "Nenhum áudio selecionado",
-    [audio]
-  );
+  const videoName = useMemo(() => video?.name ?? "Nenhum vídeo selecionado", [video]);
+  const audioName = useMemo(() => audio?.name ?? "Nenhum áudio selecionado", [audio]);
 
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
     setVideo(event.target.files?.[0] ?? null);
+    setResultUrl(null);
     setStatus("Vídeo selecionado.");
   }
 
   function selectAudio(event: ChangeEvent<HTMLInputElement>) {
     setAudio(event.target.files?.[0] ?? null);
+    setResultUrl(null);
     setStatus("Áudio selecionado.");
+  }
+
+  async function waitForJob(jobId: string) {
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+
+      const response = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Falha ao consultar o job.");
+      }
+
+      if (data.status === "completed") {
+        const url = `/api/jobs/${jobId}/result`;
+        setResultUrl(url);
+        setStatus("Vídeo pronto.");
+        return;
+      }
+
+      if (data.status === "failed") {
+        throw new Error(data.error ?? "O processamento falhou.");
+      }
+
+      setStatus(
+        data.status === "processing"
+          ? "Processando com MuseTalk... isso pode levar alguns minutos."
+          : "Job na fila de processamento..."
+      );
+    }
   }
 
   async function generate() {
@@ -38,6 +64,7 @@ export default function Home() {
     }
 
     setBusy(true);
+    setResultUrl(null);
     setStatus("Enviando arquivos para o processamento...");
 
     const form = new FormData();
@@ -54,15 +81,13 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        setStatus(data.error ?? "Não foi possível iniciar o processamento.");
-        return;
+        throw new Error(data.error ?? "Não foi possível iniciar o processamento.");
       }
 
-      setStatus(
-        `Job ${data.jobId ?? "criado"} recebido. Status: ${data.status ?? "queued"}.`
-      );
-    } catch {
-      setStatus("Erro de comunicação com o servidor.");
+      setStatus(`Job ${data.jobId} recebido.`);
+      await waitForJob(data.jobId);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Erro de comunicação com o servidor.");
     } finally {
       setBusy(false);
     }
@@ -72,14 +97,8 @@ export default function Home() {
     <main className="min-h-screen px-5 py-10">
       <div className="mx-auto max-w-3xl">
         <header className="mb-10 text-center">
-          <p className="mb-3 text-xs tracking-[0.35em] text-[var(--gold)]">
-            ALCANTARA STUDIO
-          </p>
-
-          <h1 className="text-4xl font-semibold md:text-5xl">
-            AI Video Studio
-          </h1>
-
+          <p className="mb-3 text-xs tracking-[0.35em] text-[var(--gold)]">ALCANTARA STUDIO</p>
+          <h1 className="text-4xl font-semibold md:text-5xl">AI Video Studio</h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/60">
             Transforme um vídeo seu em um videoclipe sincronizado com uma nova música.
           </p>
@@ -89,44 +108,24 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2">
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">1. Vídeo-base</span>
-              <span className="mt-2 block text-xs text-white/50">
-                MP4 — seu vídeo cantando
-              </span>
-              <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">
-                {videoName}
-              </span>
-              <input
-                className="hidden"
-                type="file"
-                accept="video/mp4,video/*"
-                onChange={selectVideo}
-              />
+              <span className="mt-2 block text-xs text-white/50">MP4 — seu vídeo cantando</span>
+              <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{videoName}</span>
+              <input className="hidden" type="file" accept="video/mp4,video/*" onChange={selectVideo} />
             </label>
 
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">2. Música</span>
-              <span className="mt-2 block text-xs text-white/50">
-                MP3 ou WAV
-              </span>
-              <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">
-                {audioName}
-              </span>
-              <input
-                className="hidden"
-                type="file"
-                accept="audio/mpeg,audio/wav,audio/*"
-                onChange={selectAudio}
-              />
+              <span className="mt-2 block text-xs text-white/50">MP3 ou WAV</span>
+              <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{audioName}</span>
+              <input className="hidden" type="file" accept="audio/mpeg,audio/wav,audio/*" onChange={selectAudio} />
             </label>
           </div>
 
           <div className="mt-7">
             <p className="mb-3 text-sm font-semibold">Formato do vídeo</p>
-
             <div className="grid grid-cols-2 gap-3">
               {(["16:9", "9:16"] as Format[]).map((item) => {
                 const selected = format === item;
-
                 return (
                   <button
                     key={item}
@@ -155,12 +154,21 @@ export default function Home() {
             disabled={busy}
             className="mt-8 w-full rounded-xl bg-[var(--gold)] px-5 py-4 text-sm font-bold tracking-wide text-black transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
           >
-            {busy ? "ENVIANDO..." : "GERAR VÍDEO"}
+            {busy ? "PROCESSANDO..." : "GERAR VÍDEO"}
           </button>
 
           <div className="mt-5 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-center text-xs text-white/60">
             {status}
           </div>
+
+          {resultUrl && (
+            <a
+              href={resultUrl}
+              className="mt-4 block w-full rounded-xl border border-[var(--gold)] px-5 py-4 text-center text-sm font-bold text-[var(--gold-light)] transition hover:bg-[var(--gold)]/10"
+            >
+              BAIXAR VÍDEO MP4
+            </a>
+          )}
         </section>
 
         <p className="mt-6 text-center text-xs text-white/30">

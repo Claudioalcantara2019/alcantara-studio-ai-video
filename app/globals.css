@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #d8b46a;
+  --gold-light: #f1d99a;
+  --bg: #080807;
+  --panel: #14120e;
+  --panel-2: #1b1812;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: #f5f1e8;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}

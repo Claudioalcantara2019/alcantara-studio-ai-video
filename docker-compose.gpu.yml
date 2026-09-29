@@ -1,0 +1,22 @@
+services:
+  alcantara-gpu-worker:
+    build:
+      context: ./gpu-worker
+    ports:
+      - "8000:8000"
+    environment:
+      MUSETALK_DIR: /opt/MuseTalk
+    volumes:
+      - musetalk-models:/opt/MuseTalk/models
+      - alcantara-jobs:/data/jobs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  musetalk-models:
+  alcantara-jobs:

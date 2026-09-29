@@ -9,6 +9,7 @@ export default function Home() {
   const [audio, setAudio] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("16:9");
   const [status, setStatus] = useState("Pronto para receber os arquivos.");
+  const [busy, setBusy] = useState(false);
 
   const videoName = useMemo(
     () => video?.name ?? "Nenhum vídeo selecionado",
@@ -30,15 +31,41 @@ export default function Home() {
     setStatus("Áudio selecionado.");
   }
 
-  function generate() {
+  async function generate() {
     if (!video || !audio) {
       setStatus("Selecione o vídeo e a música antes de gerar.");
       return;
     }
 
-    setStatus(
-      "Arquivos preparados. A conexão com o processamento GPU será ativada na próxima etapa."
-    );
+    setBusy(true);
+    setStatus("Enviando arquivos para o processamento...");
+
+    const form = new FormData();
+    form.append("video", video);
+    form.append("audio", audio);
+    form.append("format", format);
+
+    try {
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        body: form
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus(data.error ?? "Não foi possível iniciar o processamento.");
+        return;
+      }
+
+      setStatus(
+        `Job ${data.jobId ?? "criado"} recebido. Status: ${data.status ?? "queued"}.`
+      );
+    } catch {
+      setStatus("Erro de comunicação com o servidor.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -125,9 +152,10 @@ export default function Home() {
           <button
             type="button"
             onClick={generate}
-            className="mt-8 w-full rounded-xl bg-[var(--gold)] px-5 py-4 text-sm font-bold tracking-wide text-black transition hover:brightness-110"
+            disabled={busy}
+            className="mt-8 w-full rounded-xl bg-[var(--gold)] px-5 py-4 text-sm font-bold tracking-wide text-black transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
           >
-            GERAR VÍDEO
+            {busy ? "ENVIANDO..." : "GERAR VÍDEO"}
           </button>
 
           <div className="mt-5 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-center text-xs text-white/60">

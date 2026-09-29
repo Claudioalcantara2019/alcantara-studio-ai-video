@@ -1,11 +1,71 @@
+import asyncio
+import shutil
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.1.0")
+from musetalk_runner import run_musetalk
+
+DATA_DIR = Path("/data/jobs")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.2.0")
+jobs: dict[str, dict] = {}
+
+
+def output_size(video_format: str) -> tuple[int, int]:
+    return (1920, 1080) if video_format == "16:9" else (1080, 1920)
+
+
+def finalize_video(source: Path, destination: Path, video_format: str) -> None:
+    width, height = output_size(video_format)
+    vf = (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height}"
+    )
+
+    command = [
+        "ffmpeg", "-y", "-i", str(source),
+        "-vf", vf,
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart", str(destination),
+    ]
+
+    import subprocess
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr[-5000:])
+
+
+async def process_job(job_id: str) -> None:
+    job = jobs[job_id]
+    job["status"] = "processing"
+    workdir = DATA_DIR / job_id
+
+    try:
+        musetalk_output = await asyncio.to_thread(
+            run_musetalk,
+            workdir / "input.mp4",
+            workdir / "audio.mp3",
+            workdir,
+        )
+
+        final_path = workdir / "final.mp4"
+        await asyncio.to_thread(
+            finalize_video,
+            musetalk_output,
+            final_path,
+            job["format"],
+        )
+
+        job["status"] = "completed"
+        job["resultUrl"] = f"/jobs/{job_id}/result"
+    except Exception as exc:
+        job["status"] = "failed"
+        job["error"] = str(exc)
 
 
 @app.get("/health")
@@ -13,7 +73,8 @@ def health() -> dict:
     return {
         "ok": True,
         "service": "alcantara-studio-gpu-worker",
-        "musetalk": "pending"
+        "musetalk": "MuseTalk 1.5",
+        "jobs": len(jobs),
     }
 
 
@@ -29,24 +90,52 @@ async def generate(
             content={"error": "Formato deve ser 16:9 ou 9:16."},
         )
 
-    if not video.filename:
-        return JSONResponse(status_code=400, content={"error": "Vídeo não informado."})
-
-    if not audio.filename:
-        return JSONResponse(status_code=400, content={"error": "Áudio não informado."})
-
     job_id = uuid4().hex
+    workdir = DATA_DIR / job_id
+    workdir.mkdir(parents=True, exist_ok=True)
 
-    with TemporaryDirectory(prefix=f"alcantara-{job_id}-") as tmp:
-        video_path = Path(tmp) / Path(video.filename).name
-        audio_path = Path(tmp) / Path(audio.filename).name
+    video_path = workdir / "input.mp4"
+    audio_path = workdir / "audio.mp3"
 
-        video_path.write_bytes(await video.read())
-        audio_path.write_bytes(await audio.read())
+    try:
+        with video_path.open("wb") as target:
+            shutil.copyfileobj(video.file, target)
+        with audio_path.open("wb") as target:
+            shutil.copyfileobj(audio.file, target)
+    except Exception:
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise
 
-    return {
+    jobs[job_id] = {
         "jobId": job_id,
         "status": "queued",
         "format": format,
-        "message": "Job recebido. A execução MuseTalk será conectada nesta etapa."
     }
+
+    asyncio.create_task(process_job(job_id))
+    return jobs[job_id]
+
+
+@app.get("/jobs/{job_id}")
+def job_status(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": "Job não encontrado."})
+    return job
+
+
+@app.get("/jobs/{job_id}/result")
+def job_result(job_id: str):
+    job = jobs.get(job_id)
+    if not job or job.get("status") != "completed":
+        return JSONResponse(status_code=404, content={"error": "Resultado ainda não disponível."})
+
+    result = DATA_DIR / job_id / "final.mp4"
+    if not result.exists():
+        return JSONResponse(status_code=404, content={"error": "Arquivo de resultado não encontrado."})
+
+    return FileResponse(
+        result,
+        media_type="video/mp4",
+        filename=f"alcantara-studio-{job_id}.mp4",
+    )

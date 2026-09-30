@@ -57,6 +57,17 @@ def mark_interrupted_jobs() -> bool:
             job["message"] = "Processamento interrompido pela reinicialização do worker. Envie novamente."
             job["error"] = job["message"]
             job["failedAt"] = utc_now()
+            if job.get("startedAt"):
+                try:
+                    job["performance"] = {
+                        "processingSeconds": round(
+                            __import__("time").time()
+                            - __import__("datetime").datetime.fromisoformat(job["startedAt"]).timestamp(),
+                            3,
+                        )
+                    }
+                except Exception:
+                    pass
             save_job(job)
             changed = True
     return changed
@@ -302,6 +313,16 @@ async def process_job(job_id: str) -> None:
 
             job["status"] = "completed"
             job["completedAt"] = utc_now()
+            job["performance"] = {
+                "processingSeconds": round(
+                    __import__("time").time()
+                    - __import__("datetime").datetime.fromisoformat(job["startedAt"]).timestamp(),
+                    3,
+                ),
+                "generatedDurationSeconds": round(media_duration(final_path), 3),
+                "resultBytes": file_size(final_path),
+                "batchSize": int(__import__("os").getenv("MUSETALK_BATCH_SIZE", "4")),
+            }
             job["progress"] = 100
             job["stage"] = "completed"
             job["message"] = "Vídeo pronto."
@@ -341,13 +362,14 @@ def runtime_readiness() -> dict:
     except Exception:
         gpu_available = False
 
+    musetalk_dir = Path(__import__("os").getenv("MUSETALK_DIR", "/opt/MuseTalk"))
     required_models = {
-        "musetalk": Path("/opt/MuseTalk/models/musetalkV15/unet.pth").is_file(),
-        "whisper": Path("/opt/MuseTalk/models/whisper/pytorch_model.bin").is_file(),
-        "dwpose": Path("/opt/MuseTalk/models/dwpose/dw-ll_ucoco_384.pth").is_file(),
-        "face_parse": Path("/opt/MuseTalk/models/face-parse-bisent/79999_iter.pth").is_file(),
-        "syncnet": Path("/opt/MuseTalk/models/syncnet/latentsync_syncnet.pt").is_file(),
-        "sd_vae": Path("/opt/MuseTalk/models/sd-vae/diffusion_pytorch_model.bin").is_file(),
+        "musetalk": (musetalk_dir / "models/musetalkV15/unet.pth").is_file(),
+        "whisper": (musetalk_dir / "models/whisper/pytorch_model.bin").is_file(),
+        "dwpose": (musetalk_dir / "models/dwpose/dw-ll_ucoco_384.pth").is_file(),
+        "face_parse": (musetalk_dir / "models/face-parse-bisent/79999_iter.pth").is_file(),
+        "syncnet": (musetalk_dir / "models/syncnet/latentsync_syncnet.pt").is_file(),
+        "sd_vae": (musetalk_dir / "models/sd-vae/diffusion_pytorch_model.bin").is_file(),
     }
 
     return {

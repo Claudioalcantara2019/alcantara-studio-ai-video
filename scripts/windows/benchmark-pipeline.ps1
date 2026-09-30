@@ -72,6 +72,20 @@ if ([string]::IsNullOrWhiteSpace($ReportDir)) {
 }
 New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
 
+foreach ($path in @($ShortVideoPath, $ShortAudioPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        Fail "Arquivo do teste curto não encontrado: $path"
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($LongVideoPath)) {
+    foreach ($path in @($LongVideoPath, $LongAudioPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            Fail "Arquivo do teste longo não encontrado: $path"
+        }
+    }
+}
+
 $health = Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -Method Get -TimeoutSec 10
 if ($health.ok -ne $true) {
     $health | ConvertTo-Json -Depth 10

@@ -263,16 +263,23 @@ async def process_job(job_id: str) -> None:
 @app.get("/health")
 def health() -> dict:
     cleanup_old_jobs()
+
     queued = sum(1 for job in jobs.values() if job.get("status") == "queued")
     processing = sum(1 for job in jobs.values() if job.get("status") == "processing")
+
+    ffmpeg_ok = shutil.which("ffmpeg") is not None
+    ffprobe_ok = shutil.which("ffprobe") is not None
+
     return {
-        "ok": True,
+        "ok": ffmpeg_ok and ffprobe_ok,
         "service": "alcantara-studio-gpu-worker",
         "musetalk": "MuseTalk 1.5",
         "jobs": len(jobs),
         "queued": queued,
         "processing": processing,
         "gpu_concurrency": GPU_CONCURRENCY,
+        "ffmpeg": ffmpeg_ok,
+        "ffprobe": ffprobe_ok,
     }
 
 

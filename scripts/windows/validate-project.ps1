@@ -26,7 +26,7 @@ npm run build
 if ($LASTEXITCODE -ne 0) { throw "Falha no build Next.js." }
 Write-Host "[OK] Next.js"
 
-Write-Host "[4/5] Scripts PowerShell..."
+Write-Host "[4/5] Arquivos essenciais..."
 $required = @(
     "app/page.tsx",
     "app/api/health/route.ts",

@@ -19,6 +19,21 @@ export default function Home() {
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
+  const [health, setHealth] = useState<{
+    gpuBackendConfigured: boolean;
+    gpuBackendReady: boolean;
+    gpu: {
+      ok?: boolean;
+      version?: string;
+      gpu?: { available?: boolean; name?: string | null; ready?: boolean };
+      readiness?: {
+        ready?: boolean;
+        python?: string | null;
+        tools?: Record<string, boolean>;
+        models?: Record<string, boolean>;
+      };
+    } | null;
+  } | null>(null);
 
   const videoName = useMemo(() => video?.name ?? "Nenhum vídeo selecionado", [video]);
   const audioName = useMemo(() => audio?.name ?? "Nenhum áudio selecionado", [audio]);
@@ -28,7 +43,10 @@ export default function Home() {
     fetch("/api/health", { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => {
-        if (active) setBackendReady(Boolean(data.gpuBackendReady));
+        if (active) {
+          setHealth(data);
+          setBackendReady(Boolean(data.gpuBackendReady));
+        }
       })
       .catch(() => {
         if (active) setBackendReady(false);
@@ -202,11 +220,62 @@ export default function Home() {
         </header>
 
         <section className="rounded-3xl border border-white/10 bg-[var(--panel)] p-6 shadow-2xl md:p-8">
-          <div className="mb-5 flex items-center justify-between rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-xs">
-            <span className="text-white/50">Backend GPU</span>
-            <span className={backendReady ? "text-emerald-300" : backendReady === false ? "text-red-300" : "text-white/40"}>
-              {backendReady ? "GPU pronta" : backendReady === false ? "GPU indisponível" : "verificando..."}
-            </span>
+          <div className="mb-5 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-white/50">Backend GPU</span>
+              <span className={backendReady ? "text-emerald-300" : backendReady === false ? "text-red-300" : "text-white/40"}>
+                {backendReady ? "GPU pronta" : backendReady === false ? "GPU indisponível" : "verificando..."}
+              </span>
+            </div>
+
+            {health && (
+              <div className="mt-3 grid gap-2 border-t border-white/5 pt-3 sm:grid-cols-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/35">API GPU</span>
+                  <span className={health.gpuBackendConfigured ? "text-emerald-300" : "text-red-300"}>
+                    {health.gpuBackendConfigured ? "configurada" : "não configurada"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/35">CUDA / GPU</span>
+                  <span className={health.gpu?.readiness?.ready ? "text-emerald-300" : "text-red-300"}>
+                    {health.gpu?.gpu?.name ?? (health.gpu?.readiness?.ready ? "pronta" : "não pronta")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/35">FFmpeg</span>
+                  <span className={health.gpu?.readiness?.tools?.ffmpeg ? "text-emerald-300" : "text-red-300"}>
+                    {health.gpu?.readiness?.tools?.ffmpeg ? "OK" : "faltando"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/35">Modelos MuseTalk</span>
+                  <span className={
+                    health.gpu?.readiness?.models &&
+                    Object.values(health.gpu.readiness.models).every(Boolean)
+                      ? "text-emerald-300"
+                      : "text-red-300"
+                  }>
+                    {health.gpu?.readiness?.models &&
+                    Object.values(health.gpu.readiness.models).every(Boolean)
+                      ? "completos"
+                      : "incompletos"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {backendReady === false && health?.gpuBackendConfigured && (
+              <p className="mt-3 border-t border-white/5 pt-3 text-[11px] leading-5 text-red-200/70">
+                O worker respondeu, mas ainda não está pronto para gerar. Verifique NVIDIA/CUDA, FFmpeg e os modelos do MuseTalk.
+              </p>
+            )}
+
+            {backendReady === false && health?.gpuBackendConfigured === false && (
+              <p className="mt-3 border-t border-white/5 pt-3 text-[11px] leading-5 text-red-200/70">
+                O frontend ainda não está apontando para um GPU Worker. No Windows local, o endereço esperado é http://127.0.0.1:8000.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">

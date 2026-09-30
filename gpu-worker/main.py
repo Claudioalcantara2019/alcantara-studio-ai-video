@@ -12,7 +12,7 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.4.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.5.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
@@ -165,12 +165,44 @@ def output_size(video_format: str) -> tuple[int, int]:
 
 
 def compose_scene(source: Path, destination: Path, scene: str) -> None:
-    if scene == "original":
-        shutil.copy2(source, destination)
-        return
-    raise RuntimeError(
-        f'Scenario "{scene}" ainda nao esta disponivel no motor de composicao.'
-    )
+    # Scene v1 intentionally stays inside FFmpeg: it adds a visual treatment
+    # without changing the person's clothing or requiring another AI model.
+    # True background replacement remains a separate future segmentation stage.
+    filters = {
+        "original": "null",
+        "studio": (
+            "eq=contrast=1.06:brightness=0.01:saturation=0.92,"
+            "unsharp=5:5:0.35:5:5:0.0,"
+            "vignette=PI/5"
+        ),
+        "stage": (
+            "eq=contrast=1.12:brightness=-0.02:saturation=1.08,"
+            "curves=all='0/0 0.18/0.12 0.5/0.55 0.82/0.92 1/1',"
+            "vignette=PI/4"
+        ),
+        "cinematic": (
+            "eq=contrast=1.08:brightness=-0.01:saturation=0.88,"
+            "unsharp=5:5:0.25:5:5:0.0,"
+            "vignette=PI/5"
+        ),
+    }
+    if scene not in filters:
+        raise RuntimeError(f'Cenário "{scene}" não é suportado.')
+
+    import subprocess
+    command = [
+        "ffmpeg", "-y",
+        "-i", str(source),
+        "-vf", filters[scene],
+        "-an",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        str(destination),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr[-5000:])
+    if not destination.is_file() or destination.stat().st_size == 0:
+        raise RuntimeError("A composição do cenário não criou um vídeo válido.")
 
 def finalize_video(source: Path, destination: Path, video_format: str) -> None:
     width, height = output_size(video_format)

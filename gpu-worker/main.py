@@ -82,7 +82,7 @@ async def process_job(job_id: str) -> None:
         musetalk_output = await asyncio.to_thread(
             run_musetalk,
             normalized_video,
-            workdir / f"audio{audio_suffix}",
+            audio_path,
             workdir,
         )
 
@@ -146,7 +146,10 @@ async def generate(
     workdir.mkdir(parents=True, exist_ok=True)
 
     video_path = workdir / "input.mp4"
-    audio_path = workdir / "audio.mp3"
+    audio_suffix = Path(audio.filename or "audio.mp3").suffix.lower()
+    if audio_suffix not in {".mp3", ".wav", ".m4a", ".aac", ".flac"}:
+        audio_suffix = ".mp3"
+    audio_path = workdir / f"audio{audio_suffix}"
 
     try:
         with video_path.open("wb") as target:

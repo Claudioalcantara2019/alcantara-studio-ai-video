@@ -61,6 +61,37 @@ Interface Next.js/Vercel
 
 A Vercel não executará a inferência pesada. O processamento de IA será separado em um backend com GPU.
 
+## Interface atual
+
+A interface já apresenta o estado do backend GPU e acompanha o job em tempo real.
+
+Ela também valida, antes do envio:
+
+- vídeo-base em MP4;
+- formatos de áudio suportados;
+- limite de 500 MB por arquivo.
+
+Durante o processamento, mostra:
+
+- ID do job;
+- etapa atual;
+- percentual informado pelo worker;
+- mensagem retornada pelo backend;
+- botão para baixar o MP4 quando concluído.
+
+O endpoint `/api/health` consulta o backend GPU quando configurado, permitindo distinguir entre **backend configurado** e **GPU realmente pronta**.
+
+## Validação automática
+
+O GitHub Actions agora valida os dois lados do projeto:
+
+1. compila os arquivos Python do GPU Worker;
+2. verifica os endpoints principais do worker;
+3. instala as dependências web;
+4. executa o build de produção do Next.js.
+
+Assim, alterações futuras na interface podem ser detectadas pelo CI antes de serem consideradas concluídas.
+
 ## Estado atual
 
 A interface inicial e a API de jobs estão implementadas. O backend GPU com MuseTalk 1.5 está estruturado em Docker/CUDA, com download automatizado dos modelos, volume persistente, healthcheck e reinício automático.

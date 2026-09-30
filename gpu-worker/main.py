@@ -12,7 +12,7 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.2.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.3.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = 1
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
@@ -220,6 +220,26 @@ async def process_job(job_id: str) -> None:
                 workdir / job["audio_filename"],
                 workdir,
             )
+
+            # Keep the generated video aligned to the requested music duration.
+            generated_duration = media_duration(musetalk_output)
+            target_duration = audio_duration
+            if generated_duration > target_duration + 0.05:
+                trimmed_musetalk = workdir / "musetalk_trimmed.mp4"
+                import subprocess
+                trim = subprocess.run(
+                    [
+                        "ffmpeg", "-y", "-i", str(musetalk_output),
+                        "-t", f"{target_duration:.3f}",
+                        "-c", "copy",
+                        str(trimmed_musetalk),
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                if trim.returncode != 0:
+                    raise RuntimeError("Não foi possível ajustar a duração do resultado MuseTalk.")
+                musetalk_output = trimmed_musetalk
 
             job["progress"] = 80
             job["message"] = "Aplicando cenário..."

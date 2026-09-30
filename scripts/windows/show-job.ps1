@@ -23,3 +23,17 @@ if ($data.performance) {
     Write-Host ("Tamanho do MP4:         {0} bytes" -f $data.performance.resultBytes)
     Write-Host ("Batch MuseTalk:         {0}" -f $data.performance.batchSize)
 }
+
+if ($data.stageTiming) {
+    Write-Host ""
+    Write-Host "=== Etapas ===" -ForegroundColor Yellow
+    foreach ($entry in $data.stageTiming.PSObject.Properties) {
+        Write-Host ("{0}: {1}s" -f $entry.Name, $entry.Value)
+    }
+}
+
+if ($data.gpu) {
+    Write-Host ""
+    Write-Host "=== GPU / VRAM ===" -ForegroundColor Yellow
+    $data.gpu | ConvertTo-Json -Depth 5
+}

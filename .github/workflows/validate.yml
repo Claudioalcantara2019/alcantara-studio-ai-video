@@ -24,6 +24,10 @@ jobs:
           grep -q '"performance"' gpu-worker/main.py
           grep -q '"cancelled"' gpu-worker/main.py
           grep -q '@app.delete("/jobs/{job_id}")' gpu-worker/main.py
+          grep -q 'def run_process' gpu-worker/main.py
+          grep -q 'cancel_event' gpu-worker/main.py
+          grep -q '@app.get("/jobs")' gpu-worker/main.py
+          grep -q '@app.post("/jobs/{job_id}/retry")' gpu-worker/main.py
           python -m pip install --quiet pytest fastapi httpx
           cd gpu-worker && PYTHONPATH=. pytest -q test_cancellation.py
           grep -q 'GPU_BACKEND_NOT_READY' app/api/jobs/route.ts

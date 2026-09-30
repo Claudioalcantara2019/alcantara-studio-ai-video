@@ -30,6 +30,9 @@ def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
     if not MUSE_DIR.exists():
         raise RuntimeError(f"MuseTalk não encontrado em {MUSE_DIR}")
 
+    if not workdir.exists():
+        workdir.mkdir(parents=True, exist_ok=True)
+
     required = [
         MODEL,
         CONFIG,

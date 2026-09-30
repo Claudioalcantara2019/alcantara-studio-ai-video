@@ -20,10 +20,12 @@ export async function GET(
   try {
     const response = await fetch(
       `${gpuUrl.replace(/\/$/, "")}/jobs/${encodeURIComponent(jobId)}`,
-      { cache: "no-store" }
+      { cache: "no-store", signal: AbortSignal.timeout(15000) }
     );
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({
+      error: "Resposta inválida do backend GPU."
+    }));
     return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json(

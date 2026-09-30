@@ -19,6 +19,15 @@ def output_size(video_format: str) -> tuple[int, int]:
     return (1920, 1080) if video_format == "16:9" else (1080, 1920)
 
 
+
+def compose_scene(source: Path, destination: Path, scene: str) -> None:
+    if scene == "original":
+        shutil.copy2(source, destination)
+        return
+    raise RuntimeError(
+        f'Scenario "{scene}" ainda nao esta disponivel no motor de composicao.'
+    )
+
 def finalize_video(source: Path, destination: Path, video_format: str) -> None:
     width, height = output_size(video_format)
     vf = (
@@ -54,10 +63,18 @@ async def process_job(job_id: str) -> None:
             workdir,
         )
 
+        composed_path = workdir / "composed.mp4"
+        await asyncio.to_thread(
+            compose_scene,
+            musetalk_output,
+            composed_path,
+            job["scene"],
+        )
+
         final_path = workdir / "final.mp4"
         await asyncio.to_thread(
             finalize_video,
-            musetalk_output,
+            composed_path,
             final_path,
             job["format"],
         )

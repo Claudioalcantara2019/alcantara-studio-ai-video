@@ -1,5 +1,6 @@
 import asyncio
 import shutil
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +16,26 @@ app = FastAPI(title="Alcantara Studio GPU Worker", version="0.2.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = 1
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
+
+def save_job(job: dict) -> None:
+    job_dir = DATA_DIR / job["jobId"]
+    job_dir.mkdir(parents=True, exist_ok=True)
+    (job_dir / "job.json").write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_jobs() -> None:
+    for job_file in DATA_DIR.glob("*/job.json"):
+        try:
+            job = json.loads(job_file.read_text(encoding="utf-8"))
+            if job.get("status") == "processing":
+                job["status"] = "failed"
+                job["stage"] = "failed"
+                job["progress"] = 0
+                job["message"] = "Processamento interrompido pela reinicialização do worker."
+            jobs[job["jobId"]] = job
+        except Exception:
+            continue
+
 
 
 
@@ -72,6 +93,7 @@ async def process_job(job_id: str) -> None:
     async with GPU_SEMAPHORE:
         job["status"] = "processing"
         job["progress"] = 5
+        save_job(job)
         job["message"] = "Preparando vídeo para o processamento..."
         job["stage"] = "normalizing"
         workdir = DATA_DIR / job_id
@@ -87,6 +109,7 @@ async def process_job(job_id: str) -> None:
             job["progress"] = 15
             job["message"] = "Executando MuseTalk..."
             job["stage"] = "musetalk"
+            save_job(job)
             musetalk_output = await asyncio.to_thread(
                 run_musetalk,
                 normalized_video,
@@ -97,6 +120,7 @@ async def process_job(job_id: str) -> None:
             job["progress"] = 80
             job["message"] = "Aplicando cenário..."
             job["stage"] = "scene"
+            save_job(job)
             composed_path = workdir / "composed.mp4"
             await asyncio.to_thread(
                 compose_scene,
@@ -108,6 +132,7 @@ async def process_job(job_id: str) -> None:
             job["progress"] = 90
             job["message"] = "Finalizando vídeo..."
             job["stage"] = "finalizing"
+            save_job(job)
             final_path = workdir / "final.mp4"
             await asyncio.to_thread(
                 finalize_video,
@@ -121,12 +146,14 @@ async def process_job(job_id: str) -> None:
             job["stage"] = "completed"
             job["message"] = "Vídeo pronto."
             job["resultUrl"] = f"/jobs/{job_id}/result"
+            save_job(job)
         except Exception as exc:
             job["status"] = "failed"
             job["progress"] = 0
             job["stage"] = "failed"
             job["message"] = f"Erro: {str(exc)}"
             job["error"] = str(exc)
+            save_job(job)
 
 
 @app.get("/health")
@@ -209,6 +236,7 @@ async def generate(
         "message": "Job aguardando a GPU..."
     }
 
+    save_job(jobs[job_id])
     asyncio.create_task(process_job(job_id))
     return jobs[job_id]
 

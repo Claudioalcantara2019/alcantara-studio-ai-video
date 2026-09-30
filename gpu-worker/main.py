@@ -70,61 +70,63 @@ def finalize_video(source: Path, destination: Path, video_format: str) -> None:
 async def process_job(job_id: str) -> None:
     job = jobs[job_id]
     async with GPU_SEMAPHORE:
-    job["status"] = "processing"
-    job["message"] = "Preparando processamento com MuseTalk..."
-    workdir = DATA_DIR / job_id
+        job["status"] = "processing"
+        job["progress"] = 5
+        job["message"] = "Preparando vídeo para o processamento..."
+        job["stage"] = "normalizing"
+        workdir = DATA_DIR / job_id
 
-    try:
-        normalized_video = workdir / "musetalk_input_25fps.mp4"
-        await asyncio.to_thread(
-            normalize_video_for_musetalk,
-            workdir / "input.mp4",
-            normalized_video,
-        )
+        try:
+            normalized_video = workdir / "musetalk_input_25fps.mp4"
+            await asyncio.to_thread(
+                normalize_video_for_musetalk,
+                workdir / "input.mp4",
+                normalized_video,
+            )
 
-        job["progress"] = 15
-        job["message"] = "Executando MuseTalk..."
-        job["stage"] = "musetalk"
-        musetalk_output = await asyncio.to_thread(
-            run_musetalk,
-            normalized_video,
-            audio_path,
-            workdir,
-        )
+            job["progress"] = 15
+            job["message"] = "Executando MuseTalk..."
+            job["stage"] = "musetalk"
+            musetalk_output = await asyncio.to_thread(
+                run_musetalk,
+                normalized_video,
+                workdir / job["audio_filename"],
+                workdir,
+            )
 
-        job["progress"] = 80
-        job["message"] = "Aplicando cenário..."
-        job["stage"] = "scene"
-        composed_path = workdir / "composed.mp4"
-        await asyncio.to_thread(
-            compose_scene,
-            musetalk_output,
-            composed_path,
-            job["scene"],
-        )
+            job["progress"] = 80
+            job["message"] = "Aplicando cenário..."
+            job["stage"] = "scene"
+            composed_path = workdir / "composed.mp4"
+            await asyncio.to_thread(
+                compose_scene,
+                musetalk_output,
+                composed_path,
+                job["scene"],
+            )
 
-        job["progress"] = 90
-        job["message"] = "Finalizando vídeo..."
-        job["stage"] = "finalizing"
-        final_path = workdir / "final.mp4"
-        await asyncio.to_thread(
-            finalize_video,
-            composed_path,
-            final_path,
-            job["format"],
-        )
+            job["progress"] = 90
+            job["message"] = "Finalizando vídeo..."
+            job["stage"] = "finalizing"
+            final_path = workdir / "final.mp4"
+            await asyncio.to_thread(
+                finalize_video,
+                composed_path,
+                final_path,
+                job["format"],
+            )
 
-        job["status"] = "completed"
-        job["progress"] = 100
-        job["stage"] = "completed"
-        job["message"] = "Vídeo pronto."
-        job["resultUrl"] = f"/jobs/{job_id}/result"
-    except Exception as exc:
-        job["status"] = "failed"
-        job["progress"] = 0
-        job["stage"] = "failed"
-        job["message"] = f"Erro: {str(exc)}"
-        job["error"] = str(exc)
+            job["status"] = "completed"
+            job["progress"] = 100
+            job["stage"] = "completed"
+            job["message"] = "Vídeo pronto."
+            job["resultUrl"] = f"/jobs/{job_id}/result"
+        except Exception as exc:
+            job["status"] = "failed"
+            job["progress"] = 0
+            job["stage"] = "failed"
+            job["message"] = f"Erro: {str(exc)}"
+            job["error"] = str(exc)
 
 
 @app.get("/health")
@@ -196,6 +198,7 @@ async def generate(
         "status": "queued",
         "format": format,
         "scene": scene,
+        "audio_filename": audio_path.name,
         "progress": 0,
         "stage": "queued",
         "message": "Job aguardando a GPU..."

@@ -26,7 +26,7 @@ npm run build
 if ($LASTEXITCODE -ne 0) { throw "Falha no build Next.js." }
 Write-Host "[OK] Next.js"
 
-Write-Host "[4/4] Arquivos essenciais..."
+Write-Host "[4/5] Scripts PowerShell..."
 $required = @(
     "app/page.tsx",
     "app/api/health/route.ts",
@@ -45,6 +45,31 @@ foreach ($file in $required) {
 }
 
 Write-Host "[OK] Arquivos essenciais"
+
+Write-Host "[5/5] Sintaxe PowerShell..."
+$scripts = @(
+    "scripts/windows/check-gpu.ps1",
+    "scripts/windows/start-gpu-worker.ps1",
+    "scripts/windows/start-web.ps1",
+    "scripts/windows/show-job.ps1",
+    "scripts/windows/validate-project.ps1"
+)
+foreach ($script in $scripts) {
+    if (-not (Test-Path $script)) {
+        throw "Script ausente: $script"
+    }
+    $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        (Resolve-Path $script),
+        [ref]$null,
+        [ref]$errors
+    ) | Out-Null
+    if ($errors.Count -gt 0) {
+        throw "Erro de sintaxe PowerShell em $script"
+    }
+}
+Write-Host "[OK] PowerShell"
+
 Write-Host ""
 Write-Host "VALIDAÇÃO CONCLUÍDA." -ForegroundColor Green
 Write-Host "Observação: esta validação não executa MuseTalk; para isso é necessária uma GPU NVIDIA."

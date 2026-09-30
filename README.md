@@ -17,7 +17,7 @@ Aplicação web do Alcantara Studio para transformar um vídeo-base de apresenta
 O worker foi preparado para o fluxo de músicas longas, como uma faixa de 4 minutos ou mais.
 
 - Limite padrão por arquivo: **15 minutos**.
-- Limite padrão de upload: **500 MB por arquivo**.
+- Limite padrão de upload: **2 GB por arquivo**.
 - A duração do vídeo-base deve cobrir a duração da música.
 - O worker mede as durações antes de ocupar a GPU.
 - Jobs em andamento não continuam automaticamente depois de uma reinicialização do worker; eles são marcados como interrompidos para evitar jobs presos na fila.
@@ -29,7 +29,7 @@ Variáveis principais:
 ```text
 GPU_CONCURRENCY=1
 MAX_VIDEO_DURATION_SECONDS=900
-MAX_UPLOAD_BYTES=524288000
+MAX_UPLOAD_BYTES=2147483648
 ```
 
 A limitação é deliberadamente conservadora nesta fase. Ela pode ser ampliada depois que o processamento real de vídeos de 4:17 for validado em uma GPU NVIDIA.
@@ -69,7 +69,7 @@ Ela também valida, antes do envio:
 
 - vídeo-base em MP4;
 - formatos de áudio suportados;
-- limite de 500 MB por arquivo.
+- limite de 2 GB por arquivo.
 
 Durante o processamento, mostra:
 
@@ -107,3 +107,6 @@ O pipeline também possui uma camada separada de composição de cenário. O cen
 - Seleção de cenários/fundos sem alterar o núcleo do MuseTalk.
 - Arquitetura preparada para futuros elementos visuais, como microfone lateral.
 - Possibilidade futura de empacotar a interface como aplicativo Windows.
+
+
+> Observação: no modo web atual, o arquivo ainda atravessa a camada Next.js/Vercel. O limite do worker de 2 GB não elimina eventuais limites de upload da infraestrutura web. No aplicativo Windows final, o objetivo é evitar essa passagem pela Vercel e enviar o arquivo diretamente ao processamento local/GPU.

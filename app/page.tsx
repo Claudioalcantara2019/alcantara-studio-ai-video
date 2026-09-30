@@ -5,6 +5,17 @@ import { SCENE_OPTIONS, SceneOption } from "@/lib/job";
 
 type Format = "16:9" | "9:16";
 
+type HistoryJob = {
+  jobId: string;
+  status: string;
+  scene?: string;
+  format?: string;
+  message?: string;
+  createdAt?: string;
+  performance?: { processingSeconds?: number; generatedDurationSeconds?: number; resultBytes?: number } | null;
+  retryOf?: string;
+};
+
 export default function Home() {
   const [video, setVideo] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
@@ -19,6 +30,8 @@ export default function Home() {
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
+  const [history, setHistory] = useState<HistoryJob[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [health, setHealth] = useState<{
     gpuBackendConfigured: boolean;
     gpuBackendReady: boolean;
@@ -58,13 +71,53 @@ export default function Home() {
     }
 
     refreshHealth();
-    const timer = window.setInterval(refreshHealth, 10000);
+    refreshHistory();
+    const timer = window.setInterval(() => { refreshHealth(); refreshHistory(); }, 10000);
 
     return () => {
       active = false;
       window.clearInterval(timer);
     };
   }, []);
+
+  async function refreshHistory() {
+    setHistoryLoading(true);
+    try {
+      const response = await fetch("/api/jobs/history?limit=20", { cache: "no-store" });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data.jobs)) setHistory(data.jobs);
+    } catch {
+      // Histórico é auxiliar; não interrompe a geração.
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function retryHistoryJob(id: string) {
+    setStatus("Reenviando o job para a GPU...");
+    try {
+      const response = await fetch("/api/jobs/" + encodeURIComponent(id), {
+        method: "POST",
+        headers: { "x-job-action": "retry" }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Não foi possível repetir o job.");
+      setJobId(data.jobId);
+      setBusy(true);
+      setResultUrl(null);
+      setProgress(0);
+      setStage(data.stage ?? "queued");
+      setStatus("Job repetido e enviado para processamento.");
+      await waitForJob(data.jobId);
+      await refreshHistory();
+      await refreshHistory();
+    } catch (error) {
+      setBusy(false);
+      setStage("failed");
+      setStatus(error instanceof Error ? error.message : "Erro ao repetir o job.");
+      await refreshHistory();
+    }
+  }
 
   function formatBytes(bytes: number) {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -433,6 +486,43 @@ export default function Home() {
             >
               BAIXAR VÍDEO MP4
             </a>
+          )}
+        </section>
+
+
+        <section className="mt-6 rounded-3xl border border-white/10 bg-[var(--panel)] p-6 shadow-2xl md:p-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs tracking-[0.2em] text-[var(--gold)]">HISTÓRICO</p>
+              <h2 className="mt-1 text-lg font-semibold">Últimos processamentos</h2>
+            </div>
+            <button type="button" onClick={refreshHistory} className="text-xs text-white/40 hover:text-white/70">
+              {historyLoading ? "atualizando..." : "ATUALIZAR"}
+            </button>
+          </div>
+          {history.length === 0 ? (
+            <p className="mt-5 text-xs text-white/40">Nenhum processamento registrado ainda.</p>
+          ) : (
+            <div className="mt-5 space-y-2">
+              {history.map((item) => (
+                <div key={item.jobId} className="rounded-xl border border-white/5 bg-black/20 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] text-white/30">{item.jobId.slice(0, 12)}</span>
+                    <span className={item.status === "completed" ? "text-xs text-emerald-300" : item.status === "failed" ? "text-xs text-red-300" : item.status === "cancelled" ? "text-xs text-yellow-300" : "text-xs text-white/50"}>{item.status}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/40">
+                    <span>{item.format ?? "--"}</span>
+                    <span>{item.scene ?? "--"}</span>
+                    {item.performance?.processingSeconds != null && <span>{Math.round(item.performance.processingSeconds)}s de processamento</span>}
+                  </div>
+                  {(item.status === "failed" || item.status === "cancelled") && (
+                    <button type="button" onClick={() => retryHistoryJob(item.jobId)} disabled={busy} className="mt-3 rounded-lg border border-[var(--gold)]/50 px-3 py-2 text-[11px] font-semibold text-[var(--gold-light)] disabled:opacity-40">
+                      REPETIR ESTE JOB
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </section>
 

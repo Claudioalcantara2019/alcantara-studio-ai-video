@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   const video = incoming.get("video");
   const audio = incoming.get("audio");
   const format = incoming.get("format");
+  const scene = incoming.get("scene");
 
   if (!(video instanceof File) || !(audio instanceof File)) {
     return NextResponse.json(
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   body.append("video", video, video.name);
   body.append("audio", audio, audio.name);
   body.append("format", format);
+  body.append("scene", typeof scene === "string" ? scene : "original");
 
   try {
     const response = await fetch(`${gpuUrl.replace(/\/$/, "")}/generate`, {

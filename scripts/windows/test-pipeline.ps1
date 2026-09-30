@@ -251,3 +251,4 @@ Write-Host "  [ ] duração acompanha a música"
 Write-Host "  [ ] formato corresponde ao escolhido"
 Write-Host "  [ ] resultado pode ser usado fora do projeto"
 Write-Host ""
+exit 0

@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV MUSETALK_DIR=/opt/MuseTalk
+ENV MUSETALK_PYTHON=python3.10
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.10 python3.10-dev python3-pip ffmpeg git wget ca-certificates \

@@ -50,7 +50,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def mark_interrupted_jobs() -> None:
+def mark_interrupted_jobs() -> bool:
     # A Python asyncio task cannot survive a process restart. Do not leave
     # queued/processing jobs looking alive forever after a worker restart.
     changed = False

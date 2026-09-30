@@ -61,3 +61,20 @@ def test_cancelled_job_cannot_be_cancelled_twice():
     assert response.status_code == 409
 
     main.jobs.pop(job_id, None)
+
+
+def test_run_process_honors_cancellation():
+    import sys
+
+    event = threading.Event()
+    event.set()
+
+    try:
+        main.run_process(
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            event,
+            "teste",
+        )
+        assert False, "run_process deveria cancelar"
+    except RuntimeError as exc:
+        assert str(exc) == "Job cancelado pelo usuário."

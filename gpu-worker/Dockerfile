@@ -37,6 +37,8 @@ RUN python3.10 -m pip install -r requirements.txt
 
 COPY main.py .
 COPY musetalk_runner.py .
+COPY download_models.sh .
+RUN chmod +x /app/download_models.sh
 
 RUN mkdir -p /data/jobs
 

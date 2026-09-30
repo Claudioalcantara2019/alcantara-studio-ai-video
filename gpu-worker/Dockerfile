@@ -7,7 +7,7 @@ ENV MUSETALK_DIR=/opt/MuseTalk
 ENV MUSETALK_PYTHON=python3.10
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.10 python3.10-dev python3-pip ffmpeg git wget ca-certificates \
+    python3.10 python3.10-dev python3-pip ffmpeg git wget curl ca-certificates \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 

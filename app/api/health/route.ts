@@ -20,11 +20,16 @@ export async function GET() {
     }
   }
 
+  const readiness = gpu && typeof gpu === "object" && "readiness" in gpu
+    ? (gpu as { readiness?: unknown }).readiness ?? null
+    : null;
+
   return NextResponse.json({
     ok: true,
     service: "alcantara-studio-ai-video",
     gpuBackendConfigured: Boolean(gpuUrl),
     gpuBackendReady,
-    gpu
+    gpu,
+    readiness
   });
 }

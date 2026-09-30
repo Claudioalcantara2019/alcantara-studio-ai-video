@@ -20,7 +20,7 @@ export async function GET(
   try {
     const response = await fetch(
       `${gpuUrl.replace(/\/$/, "")}/jobs/${encodeURIComponent(jobId)}/result`,
-      { cache: "no-store" }
+      { cache: "no-store", signal: AbortSignal.timeout(30 * 60 * 1000) }
     );
 
     if (!response.ok) {
@@ -29,9 +29,14 @@ export async function GET(
     }
 
     const contentType = response.headers.get("content-type") ?? "video/mp4";
-    const buffer = await response.arrayBuffer();
+    if (!response.body) {
+      return NextResponse.json(
+        { error: "O backend GPU não forneceu o arquivo de resultado." },
+        { status: 502 }
+      );
+    }
 
-    return new Response(buffer, {
+    return new Response(response.body, {
       status: 200,
       headers: {
         "Content-Type": contentType,

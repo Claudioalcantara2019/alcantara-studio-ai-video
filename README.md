@@ -51,6 +51,14 @@ alcantara-studio-ai-video/
 
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
+## Transferência de arquivos no modo web
+
+Na versão web atual, a interface envia os arquivos para a API Next.js, que os encaminha ao GPU Worker.
+
+O download do MP4 usa **streaming**: a API Next.js repassa o fluxo do arquivo sem carregar o vídeo inteiro em memória. Isso é importante para vídeos maiores.
+
+A arquitetura final do aplicativo Windows poderá eliminar essa passagem intermediária e conectar a interface diretamente ao processamento local/GPU.
+
 ## Arquitetura
 
 Interface Next.js/Vercel

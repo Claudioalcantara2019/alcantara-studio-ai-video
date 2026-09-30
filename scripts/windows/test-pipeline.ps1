@@ -225,6 +225,18 @@ if ($finalJob.performance) {
     Write-Host "[INFO] O job não possui métricas de performance."
 }
 
+if ($finalJob.stageTiming) {
+    Write-Host ""
+    Write-Host "Tempo por etapa:" -ForegroundColor Yellow
+    $finalJob.stageTiming | ConvertTo-Json -Depth 10
+}
+
+if ($finalJob.gpu) {
+    Write-Host ""
+    Write-Host "GPU / VRAM:" -ForegroundColor Yellow
+    $finalJob.gpu | ConvertTo-Json -Depth 10
+}
+
 Write-Host ""
 Write-Host "=== TESTE DE PIPELINE CONCLUÍDO ===" -ForegroundColor Green
 Write-Host ""

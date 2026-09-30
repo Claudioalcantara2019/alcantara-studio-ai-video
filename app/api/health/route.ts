@@ -13,8 +13,8 @@ export async function GET() {
         cache: "no-store",
         signal: AbortSignal.timeout(4000)
       });
-      gpuBackendReady = response.ok;
       gpu = await response.json().catch(() => null);
+      gpuBackendReady = response.ok && gpu?.ok === true;
     } catch {
       gpuBackendReady = false;
     }

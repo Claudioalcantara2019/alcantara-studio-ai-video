@@ -46,17 +46,22 @@ export async function POST(request: Request) {
     const response = await fetch(`${gpuUrl.replace(/\/$/, "")}/generate`, {
       method: "POST",
       body,
-      cache: "no-store"
+      cache: "no-store",
+      signal: AbortSignal.timeout(10 * 60 * 1000)
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({
+      error: "O backend GPU retornou uma resposta inválida."
+    }));
     return NextResponse.json(data, { status: response.status });
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "TimeoutError"
+        ? "O backend GPU demorou demais para aceitar o job."
+        : "Não foi possível conectar ao backend GPU.";
+
     return NextResponse.json(
-      {
-        error: "Não foi possível conectar ao backend GPU.",
-        code: "GPU_BACKEND_UNREACHABLE"
-      },
+      { error: message, code: "GPU_BACKEND_UNREACHABLE" },
       { status: 502 }
     );
   }

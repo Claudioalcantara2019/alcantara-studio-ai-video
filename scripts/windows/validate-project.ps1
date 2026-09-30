@@ -70,7 +70,8 @@ $scripts = @(
     "scripts/windows/start-all.ps1",
     "scripts/windows/status.ps1",
     "scripts/windows/stop-all.ps1",
-    "scripts/windows/test-pipeline.ps1"
+    "scripts/windows/test-pipeline.ps1",
+    "scripts/windows/benchmark-pipeline.ps1"
 )
 foreach ($script in $scripts) {
     if (-not (Test-Path $script)) {

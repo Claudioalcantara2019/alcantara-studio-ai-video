@@ -52,6 +52,23 @@ alcantara-studio-ai-video/
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
 ## Fluxo local no Windows
+### Medição do primeiro teste de 4:17
+
+Depois que um job terminar, as métricas ficam registradas no próprio job:
+
+- tempo total de processamento;
+- duração do MP4 final;
+- tamanho do resultado;
+- batch usado pelo MuseTalk.
+
+No Windows, é possível consultar com:
+
+```powershell
+.\scripts\windows\show-job.ps1 -JobId SEU_JOB_ID
+```
+
+Esses dados serão usados para avaliar a primeira execução real de 4:17 e decidir ajustes de batch/VRAM antes de pensar em otimizações posteriores.
+
 ### Validação antes de usar
 
 No Windows, existe um comando único para conferir a estrutura do projeto:

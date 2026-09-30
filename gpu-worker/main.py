@@ -22,6 +22,20 @@ MAX_JOB_AGE_HOURS = max(1, int(__import__("os").getenv("MAX_JOB_AGE_HOURS", "72"
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
 cancel_events: dict[str, threading.Event] = {}
 
+def gpu_snapshot() -> dict:
+    try:
+        import torch
+        if not torch.cuda.is_available(): return {"available": False}
+        return {"available": True, "name": torch.cuda.get_device_name(0), "allocatedMb": round(torch.cuda.memory_allocated(0)/1024/1024,1), "reservedMb": round(torch.cuda.memory_reserved(0)/1024/1024,1), "peakAllocatedMb": round(torch.cuda.max_memory_allocated(0)/1024/1024,1), "peakReservedMb": round(torch.cuda.max_memory_reserved(0)/1024/1024,1)}
+    except Exception: return {"available": False}
+
+def reset_gpu_peak_memory() -> None:
+    try:
+        import torch
+        if torch.cuda.is_available(): torch.cuda.reset_peak_memory_stats(0)
+    except Exception: pass
+
+
 def save_job(job: dict) -> None:
     job_dir = DATA_DIR / job["jobId"]
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -274,6 +288,8 @@ async def process_job(job_id: str) -> None:
 
         job["status"] = "processing"
         job["startedAt"] = utc_now()
+        job["stageTiming"] = {}
+        reset_gpu_peak_memory()
         job["progress"] = 5
         job["message"] = "Preparando vídeo para o processamento..."
         job["stage"] = "normalizing"
@@ -317,6 +333,7 @@ async def process_job(job_id: str) -> None:
                 )
             save_job(job)
 
+            stage_started = __import__("time").monotonic()
             normalized_video = workdir / "musetalk_input_25fps.mp4"
             await asyncio.to_thread(
                 normalize_video_for_musetalk,
@@ -324,6 +341,8 @@ async def process_job(job_id: str) -> None:
                 normalized_video,
                 cancel_event,
             )
+
+            job["stageTiming"]["normalizingSeconds"] = round(__import__("time").monotonic() - stage_started, 3)
 
             if cancel_event.is_set():
                 raise RuntimeError("Job cancelado pelo usuário.")
@@ -333,6 +352,8 @@ async def process_job(job_id: str) -> None:
             job["stage"] = "musetalk"
             save_job(job)
 
+            stage_started = __import__("time").monotonic()
+            reset_gpu_peak_memory()
             musetalk_output = await asyncio.to_thread(
                 run_musetalk,
                 normalized_video,
@@ -340,6 +361,9 @@ async def process_job(job_id: str) -> None:
                 workdir,
                 cancel_event,
             )
+
+            job["stageTiming"]["musetalkSeconds"] = round(__import__("time").monotonic() - stage_started, 3)
+            job["gpu"] = gpu_snapshot()
 
             # Keep the generated video aligned to the requested music duration.
             generated_duration = media_duration(musetalk_output)
@@ -352,7 +376,9 @@ async def process_job(job_id: str) -> None:
                     "-c", "copy",
                     str(trimmed_musetalk),
                 ]
+                stage_started = __import__("time").monotonic()
                 run_process(trim, cancel_event, "Ajuste de duração")
+                job["stageTiming"]["trimSeconds"] = round(__import__("time").monotonic() - stage_started, 3)
                 musetalk_output = trimmed_musetalk
 
             if cancel_event.is_set():
@@ -363,6 +389,7 @@ async def process_job(job_id: str) -> None:
             job["stage"] = "scene"
             save_job(job)
 
+            stage_started = __import__("time").monotonic()
             composed_path = workdir / "composed.mp4"
             await asyncio.to_thread(
                 compose_scene,
@@ -371,6 +398,7 @@ async def process_job(job_id: str) -> None:
                 job["scene"],
                 cancel_event,
             )
+            job["stageTiming"]["sceneSeconds"] = round(__import__("time").monotonic() - stage_started, 3)
 
             if cancel_event.is_set():
                 raise RuntimeError("Job cancelado pelo usuário.")
@@ -380,6 +408,7 @@ async def process_job(job_id: str) -> None:
             job["stage"] = "finalizing"
             save_job(job)
 
+            stage_started = __import__("time").monotonic()
             final_path = workdir / "final.mp4"
             await asyncio.to_thread(
                 finalize_video,
@@ -389,6 +418,8 @@ async def process_job(job_id: str) -> None:
                 job["format"],
                 cancel_event,
             )
+            job["stageTiming"]["finalizingSeconds"] = round(__import__("time").monotonic() - stage_started, 3)
+            job["gpu"] = gpu_snapshot()
 
             if cancel_event.is_set():
                 raise RuntimeError("Job cancelado pelo usuário.")

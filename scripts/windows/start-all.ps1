@@ -36,6 +36,37 @@ GPU_API_URL=http://127.0.0.1:8000
 }
 
 Write-Host ""
+Write-Host "Iniciando Next.js em uma janela separada..." -ForegroundColor Yellow
+
+$webProcess = Start-Process powershell.exe -ArgumentList "-NoExit", "-Command", "Set-Location '$root'; npm run dev" -PassThru
+$webProcess.Id | Set-Content -Encoding ASCII ".alcantara-web.pid"
+
+$webTimeout = 120
+$webElapsed = 0
+$webReady = $false
+
+while ($webElapsed -lt $webTimeout) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:3000" -Method Head -TimeoutSec 3
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+            $webReady = $true
+            break
+        }
+    } catch {
+    }
+
+    Start-Sleep -Seconds 2
+    $webElapsed += 2
+}
+
+if (-not $webReady) {
+    Write-Host "[ERRO] Next.js não respondeu em 120 segundos." -ForegroundColor Red
+    Remove-Item ".alcantara-web.pid" -Force -ErrorAction SilentlyContinue
+    try { Stop-Process -Id $webProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+    throw "Interface web não ficou pronta."
+}
+
+Write-Host ""
 Write-Host "=== SISTEMA PRONTO ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "GPU Worker: http://127.0.0.1:8000/health"
@@ -44,7 +75,7 @@ Write-Host ""
 Write-Host "Abrindo a interface..." -ForegroundColor Cyan
 Start-Process "http://localhost:3000"
 Write-Host ""
-Write-Host "Iniciando Next.js. Feche esta janela para parar a interface." -ForegroundColor Yellow
+Write-Host "PID da janela Next.js: $($webProcess.Id)"
+Write-Host "Use .\scripts\windows\status.ps1 para consultar o sistema."
+Write-Host "Use .\scripts\windows\stop-all.ps1 para parar tudo."
 Write-Host ""
-
-npm run dev

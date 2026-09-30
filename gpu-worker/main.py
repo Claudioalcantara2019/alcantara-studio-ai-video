@@ -86,6 +86,7 @@ async def generate(
     video: UploadFile = File(...),
     audio: UploadFile = File(...),
     format: str = Form("16:9"),
+    scene: str = Form("original"),
 ):
     if format not in {"16:9", "9:16"}:
         return JSONResponse(
@@ -113,6 +114,7 @@ async def generate(
         "jobId": job_id,
         "status": "queued",
         "format": format,
+        "scene": scene,
     }
 
     asyncio.create_task(process_job(job_id))

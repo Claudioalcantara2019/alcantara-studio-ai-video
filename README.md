@@ -52,6 +52,22 @@ alcantara-studio-ai-video/
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
 ## Fluxo local no Windows
+### Telemetria do processamento
+
+O worker registra métricas para a primeira execução real em GPU:
+
+- tempo total de processamento;
+- tempo de normalização;
+- tempo do MuseTalk;
+- tempo do ajuste de duração, quando necessário;
+- tempo da composição do cenário;
+- tempo da finalização;
+- GPU utilizada;
+- pico de memória GPU alocada/reservada;
+- duração e tamanho do resultado.
+
+O objetivo é medir a execução real antes de alterar batch, limites de VRAM ou outras otimizações.
+
 ### Medição do primeiro teste de 4:17
 
 Depois que um job terminar, as métricas ficam registradas no próprio job:

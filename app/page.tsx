@@ -108,7 +108,7 @@ export default function Home() {
           <p className="mb-3 text-xs tracking-[0.35em] text-[var(--gold)]">ALCANTARA STUDIO</p>
           <h1 className="text-4xl font-semibold md:text-5xl">AI Video Studio</h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/60">
-            Transforme um vídeo seu em um videoclipe sincronizado com uma nova música.
+            Vídeo + música → sincronização labial.
           </p>
         </header>
 
@@ -116,14 +116,14 @@ export default function Home() {
           <div className="grid gap-5 md:grid-cols-2">
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">1. Vídeo-base</span>
-              <span className="mt-2 block text-xs text-white/50">MP4 — seu vídeo cantando</span>
+              <span className="mt-2 block text-xs text-white/50">Seu vídeo cantando • MP4</span>
               <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{videoName}</span>
               <input className="hidden" type="file" accept="video/mp4,video/*" onChange={selectVideo} />
             </label>
 
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">2. Música</span>
-              <span className="mt-2 block text-xs text-white/50">MP3 ou WAV</span>
+              <span className="mt-2 block text-xs text-white/50">A música que terá a nova sincronização</span>
               <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{audioName}</span>
               <input className="hidden" type="file" accept="audio/mpeg,audio/wav,audio/*" onChange={selectAudio} />
             </label>
@@ -173,7 +173,7 @@ export default function Home() {
               ))}
             </select>
             <p className="mt-2 text-xs text-white/40">
-              A troca de cenário será ativada na próxima etapa do motor de vídeo.
+              O cenário original é o foco do motor atual. Novos cenários serão adicionados depois, sem alterar o núcleo de sincronização.
             </p>
           </div>
 

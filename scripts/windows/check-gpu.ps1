@@ -1,9 +1,6 @@
 $ErrorActionPreference = "Continue"
 
 Write-Host ""
-if (-not $dockerGpuOk) {
-    Write-Host "[ATENÇÃO] O worker não deve ser considerado pronto enquanto o teste GPU do Docker falhar." -ForegroundColor Yellow
-}
 Write-Host "=== Alcantara Studio AI Video - diagnóstico GPU ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -36,6 +33,7 @@ if ($dockerGpuOk) {
 } else {
     Write-Host ""
     Write-Host "[ERRO] Docker não conseguiu acessar a GPU NVIDIA." -ForegroundColor Red
+    Write-Host "[ATENÇÃO] O worker não deve ser considerado pronto enquanto o teste GPU do Docker falhar." -ForegroundColor Yellow
 }
 
 Write-Host ""

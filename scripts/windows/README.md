@@ -39,7 +39,18 @@ docker run --rm --gpus all nvidia/cuda:11.8.0-runtime-ubuntu22.04 nvidia-smi
 
 O segundo comando confirma que o Docker consegue enxergar a GPU.
 
-## 3. Subir o worker
+
+## 3. Diagnóstico completo
+
+Na raiz do projeto:
+
+```powershell
+.\scripts\windows\diagnose-project.ps1
+```
+
+Esse comando não altera nada e não inicia jobs. Ele mostra Node/npm/Python/Docker, NVIDIA, acesso da GPU pelo Docker, estado do worker e arquivos principais. É útil para descobrir rapidamente qual camada está faltando.
+
+## 4. Subir o worker
 
 Na raiz do projeto:
 
@@ -49,7 +60,7 @@ Na raiz do projeto:
 
 O script chama o Docker Compose e deixa o worker na porta 8000.
 
-## 4. Rodar a interface
+## 5. Rodar a interface
 
 Em outro terminal:
 
@@ -59,7 +70,7 @@ Em outro terminal:
 
 A interface Next.js ficará disponível localmente.
 
-## 5. Diagnóstico
+## 6. Diagnóstico rápido
 
 Use:
 

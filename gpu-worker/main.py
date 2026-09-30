@@ -328,6 +328,16 @@ def ready():
     return readiness
 
 
+@app.get("/gpu")
+def gpu_status():
+    readiness = runtime_readiness()
+    return {
+        "available": readiness["gpu"]["available"],
+        "name": readiness["gpu"]["name"],
+        "ready": readiness["ready"],
+    }
+
+
 def validate_upload_metadata(video: UploadFile, audio: UploadFile) -> str | None:
     video_name = (video.filename or "").lower()
     audio_name = (audio.filename or "").lower()

@@ -24,6 +24,8 @@ jobs:
           grep -q '"performance"' gpu-worker/main.py
           grep -q '"cancelled"' gpu-worker/main.py
           grep -q '@app.delete("/jobs/{job_id}")' gpu-worker/main.py
+          python -m pip install --quiet pytest fastapi httpx
+          cd gpu-worker && PYTHONPATH=. pytest -q test_cancellation.py
           grep -q 'GPU_BACKEND_NOT_READY' app/api/jobs/route.ts
           grep -q '"-map", "1:a:0"' gpu-worker/main.py
           grep -q 'workdir / job\["audio_filename"\]' gpu-worker/main.py

@@ -79,6 +79,8 @@ async def process_job(job_id: str) -> None:
             normalized_video,
         )
 
+        job["message"] = "Executando MuseTalk..."
+        job["stage"] = "musetalk"
         musetalk_output = await asyncio.to_thread(
             run_musetalk,
             normalized_video,
@@ -86,6 +88,8 @@ async def process_job(job_id: str) -> None:
             workdir,
         )
 
+        job["message"] = "Aplicando cenário..."
+        job["stage"] = "scene"
         composed_path = workdir / "composed.mp4"
         await asyncio.to_thread(
             compose_scene,
@@ -94,6 +98,8 @@ async def process_job(job_id: str) -> None:
             job["scene"],
         )
 
+        job["message"] = "Finalizando vídeo..."
+        job["stage"] = "finalizing"
         final_path = workdir / "final.mp4"
         await asyncio.to_thread(
             finalize_video,
@@ -103,10 +109,12 @@ async def process_job(job_id: str) -> None:
         )
 
         job["status"] = "completed"
+        job["stage"] = "completed"
         job["message"] = "Vídeo pronto."
         job["resultUrl"] = f"/jobs/{job_id}/result"
     except Exception as exc:
         job["status"] = "failed"
+        job["stage"] = "failed"
         job["message"] = f"Erro: {str(exc)}"
         job["error"] = str(exc)
 

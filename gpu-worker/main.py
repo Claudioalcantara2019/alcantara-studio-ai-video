@@ -81,9 +81,39 @@ async def startup() -> None:
     mark_interrupted_jobs()
 
 
-def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
+def run_process(command: list[str], cancel_event=None, label: str = "processo") -> tuple[str, str]:
     import subprocess
 
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    while True:
+        try:
+            stdout, stderr = process.communicate(timeout=1)
+            break
+        except subprocess.TimeoutExpired:
+            if cancel_event is not None and cancel_event.is_set():
+                process.terminate()
+                try:
+                    stdout, stderr = process.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                raise RuntimeError("Job cancelado pelo usuário.")
+
+    if process.returncode != 0:
+        raise RuntimeError(
+            f"{label} falhou.\\nSTDOUT:\\n{stdout[-5000:]}\\nSTDERR:\\n{stderr[-5000:]}"
+        )
+
+    return stdout, stderr
+
+
+def normalize_video_for_musetalk(source: Path, destination: Path, cancel_event=None) -> None:
     command = [
         "ffmpeg", "-y", "-i", str(source),
         "-vf", "fps=25",
@@ -91,9 +121,7 @@ def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
         "-c:v", "libx264", "-preset", "fast", "-crf", "18",
         str(destination),
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr[-5000:])
+    run_process(command, cancel_event, "Normalização do vídeo")
 
 
 def media_duration(path: Path) -> float:
@@ -166,7 +194,7 @@ def output_size(video_format: str) -> tuple[int, int]:
 
 
 
-def compose_scene(source: Path, destination: Path, scene: str) -> None:
+def compose_scene(source: Path, destination: Path, scene: str, cancel_event=None) -> None:
     # Scene v1 intentionally stays inside FFmpeg: it adds a visual treatment
     # without changing the person's clothing or requiring another AI model.
     # True background replacement remains a separate future segmentation stage.
@@ -191,7 +219,6 @@ def compose_scene(source: Path, destination: Path, scene: str) -> None:
     if scene not in filters:
         raise RuntimeError(f'Cenário "{scene}" não é suportado.')
 
-    import subprocess
     command = [
         "ffmpeg", "-y",
         "-i", str(source),
@@ -200,13 +227,11 @@ def compose_scene(source: Path, destination: Path, scene: str) -> None:
         "-c:v", "libx264", "-preset", "fast", "-crf", "18",
         str(destination),
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr[-5000:])
+    run_process(command, cancel_event, "Composição do cenário")
     if not destination.is_file() or destination.stat().st_size == 0:
         raise RuntimeError("A composição do cenário não criou um vídeo válido.")
 
-def finalize_video(source: Path, audio: Path, destination: Path, video_format: str) -> None:
+def finalize_video(source: Path, audio: Path, destination: Path, video_format: str, cancel_event=None) -> None:
     width, height = output_size(video_format)
     vf = (
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
@@ -228,10 +253,7 @@ def finalize_video(source: Path, audio: Path, destination: Path, video_format: s
         str(destination),
     ]
 
-    import subprocess
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr[-5000:])
+    run_process(command, cancel_event, "Finalização do vídeo")
 
     if not destination.is_file() or destination.stat().st_size == 0:
         raise RuntimeError("O vídeo final não foi criado corretamente.")
@@ -300,6 +322,7 @@ async def process_job(job_id: str) -> None:
                 normalize_video_for_musetalk,
                 workdir / "input.mp4",
                 normalized_video,
+                cancel_event,
             )
 
             if cancel_event.is_set():
@@ -331,11 +354,8 @@ async def process_job(job_id: str) -> None:
                         "-c", "copy",
                         str(trimmed_musetalk),
                     ],
-                    capture_output=True,
-                    text=True,
                 )
-                if trim.returncode != 0:
-                    raise RuntimeError("Não foi possível ajustar a duração do resultado MuseTalk.")
+                run_process(trim, cancel_event, "Ajuste de duração")
                 musetalk_output = trimmed_musetalk
 
             if cancel_event.is_set():
@@ -352,6 +372,7 @@ async def process_job(job_id: str) -> None:
                 musetalk_output,
                 composed_path,
                 job["scene"],
+                cancel_event,
             )
 
             if cancel_event.is_set():
@@ -369,6 +390,7 @@ async def process_job(job_id: str) -> None:
                 workdir / job["audio_filename"],
                 final_path,
                 job["format"],
+                cancel_event,
             )
 
             if cancel_event.is_set():

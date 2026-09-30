@@ -13,6 +13,7 @@ export default function Home() {
   const [status, setStatus] = useState("Pronto para receber os arquivos.");
   const [busy, setBusy] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const videoName = useMemo(() => video?.name ?? "Nenhum vídeo selecionado", [video]);
   const audioName = useMemo(() => audio?.name ?? "Nenhum áudio selecionado", [audio]);
@@ -43,9 +44,12 @@ export default function Home() {
       if (data.status === "completed") {
         const url = `/api/jobs/${jobId}/result`;
         setResultUrl(url);
+        setProgress(100);
         setStatus("Vídeo pronto.");
         return;
       }
+
+      setProgress(typeof data.progress === "number" ? data.progress : 0);
 
       if (data.status === "failed") {
         throw new Error(data.error ?? "O processamento falhou.");
@@ -67,6 +71,7 @@ export default function Home() {
 
     setBusy(true);
     setResultUrl(null);
+    setProgress(0);
     setStatus("Enviando arquivos para o processamento...");
 
     const form = new FormData();
@@ -184,6 +189,18 @@ export default function Home() {
           <div className="mt-5 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-center text-xs text-white/60">
             {status}
           </div>
+
+          {busy && (
+            <div className="mt-3">
+              <div className="mb-1 flex justify-between text-[11px] text-white/40">
+                <span>Progresso</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                <div className="h-full rounded-full bg-[var(--gold)] transition-all duration-500" style={{ width: progress + "%" }} />
+              </div>
+            </div>
+          )}
 
           {resultUrl && (
             <a

@@ -65,6 +65,11 @@ def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(MUSE_DIR)
     env["MPLBACKEND"] = "Agg"
+    env["TOKENIZERS_PARALLELISM"] = "false"
+    env["PYTORCH_CUDA_ALLOC_CONF"] = os.getenv(
+        "PYTORCH_CUDA_ALLOC_CONF",
+        "expandable_segments:True",
+    )
 
     command = [
         PYTHON,

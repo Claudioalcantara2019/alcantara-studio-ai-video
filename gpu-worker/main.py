@@ -16,7 +16,7 @@ app = FastAPI(title="Alcantara Studio GPU Worker", version="0.3.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
-MAX_UPLOAD_BYTES = int(__import__("os").getenv("MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(__import__("os").getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
 
 def save_job(job: dict) -> None:

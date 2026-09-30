@@ -139,3 +139,35 @@ Para parar o worker:
 ```
 
 O Next.js iniciado pelo `start-all.ps1` roda em primeiro plano; para encerrá-lo, use `Ctrl+C` na janela correspondente.
+
+
+## Primeiro teste real de ponta a ponta
+
+Depois que o GPU Worker estiver READY, é possível testar o pipeline sem depender do navegador:
+
+    .\scripts\windows\test-pipeline.ps1 -VideoPath "C:\caminho\video.mp4" -AudioPath "C:\caminho\musica.mp3"
+
+Para o primeiro teste de 4:17, recomenda-se manter -Format 16:9 e -Scene original, isolando primeiro o MuseTalk.
+
+Exemplo:
+
+    .\scripts\windows\test-pipeline.ps1 -VideoPath "C:\Videos\base-4m17.mp4" -AudioPath "C:\Musicas\faixa-4m17.mp3" -Format "16:9" -Scene "original" -OutputPath "C:\Videos\alcantara-4m17-teste.mp4"
+
+O script:
+
+1. verifica se o Worker está READY;
+2. envia vídeo e música para /generate;
+3. acompanha o job;
+4. detecta falha;
+5. baixa o MP4 final;
+6. mostra tamanho e métricas de performance registradas pelo Worker.
+
+Isso permite separar problemas da interface web de problemas do pipeline GPU/MuseTalk.
+
+### Ordem recomendada do primeiro teste
+
+**Teste 1 — curto:** vídeo curto + música curta.
+
+**Teste 2 — 4:17:** vídeo-base de pelo menos 4:17 + música de 4:17.
+
+Somente depois de confirmar esses dois testes vale trabalhar em otimização de VRAM, novos cenários ou empacotamento Windows.

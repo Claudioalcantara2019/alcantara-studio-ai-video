@@ -171,3 +171,21 @@ Isso permite separar problemas da interface web de problemas do pipeline GPU/Mus
 **Teste 2 — 4:17:** vídeo-base de pelo menos 4:17 + música de 4:17.
 
 Somente depois de confirmar esses dois testes vale trabalhar em otimização de VRAM, novos cenários ou empacotamento Windows.
+
+### Benchmark curto → 4:17
+
+Quando houver uma máquina NVIDIA disponível, o benchmark executa primeiro um teste curto e salva as métricas. Se também forem fornecidos os arquivos longos, executa em seguida o teste de 4:17 e cria um relatório consolidado em `reports/`.
+
+Exemplo somente com teste curto:
+
+```powershell
+.\scripts\windows\benchmark-pipeline.ps1 -ShortVideoPath "C:\caminho\video-curto.mp4" -ShortAudioPath "C:\caminho\musica-curta.mp3"
+```
+
+Exemplo curto + 4:17:
+
+```powershell
+.\scripts\windows\benchmark-pipeline.ps1 -ShortVideoPath "C:\caminho\video-curto.mp4" -ShortAudioPath "C:\caminho\musica-curta.mp3" -LongVideoPath "C:\caminho\video-4m17.mp4" -LongAudioPath "C:\caminho\musica-4m17.mp3"
+```
+
+O benchmark registra job ID, tempos por etapa, GPU/VRAM, duração e tamanho do resultado.

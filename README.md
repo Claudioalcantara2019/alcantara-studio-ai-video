@@ -169,7 +169,7 @@ Assim, alterações futuras na interface podem ser detectadas pelo CI antes de s
 
 A interface inicial e a API de jobs estão implementadas. O backend GPU com MuseTalk 1.5 está estruturado em Docker/CUDA, com download automatizado dos modelos, volume persistente, healthcheck e reinício automático.
 
-O pipeline também possui uma camada separada de composição de cenário. O cenário "Vídeo original" funciona; as opções de cenários adicionais estão preparadas na interface e serão ativadas quando o motor de composição correspondente for implementado.
+O pipeline possui uma camada separada de composição de cenário. A versão atual já executa quatro modos: original, estúdio, palco e cinematográfico. Os três últimos aplicam tratamentos visuais com FFmpeg depois do MuseTalk, sem modificar roupa, rosto ou áudio. A substituição real do fundo por outro cenário ainda será uma etapa separada de segmentação/recorte da pessoa.
 
 ## Requisitos de evolução
 
@@ -177,7 +177,8 @@ O pipeline também possui uma camada separada de composição de cenário. O cen
 - Upload de MP4 + MP3/WAV.
 - Saída 16:9 e 9:16.
 - Download direto do MP4.
-- Seleção de cenários/fundos sem alterar o núcleo do MuseTalk.
+- Seleção de tratamentos visuais sem alterar o núcleo do MuseTalk.
+- Próxima etapa de composição: substituição real do fundo por cenário externo usando segmentação da pessoa.
 - Arquitetura preparada para futuros elementos visuais, como microfone lateral.
 - Possibilidade futura de empacotar a interface como aplicativo Windows.
 

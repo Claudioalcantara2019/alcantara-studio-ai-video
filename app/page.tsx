@@ -98,6 +98,11 @@ export default function Home() {
       return;
     }
 
+    if (backendReady !== true) {
+      setStatus("A GPU ainda não está pronta. Inicie o backend GPU e tente novamente.");
+      return;
+    }
+
     if (!video.name.toLowerCase().endsWith(".mp4")) {
       setStatus("O vídeo-base precisa estar em MP4.");
       return;
@@ -163,7 +168,7 @@ export default function Home() {
           <div className="mb-5 flex items-center justify-between rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-xs">
             <span className="text-white/50">Backend GPU</span>
             <span className={backendReady ? "text-emerald-300" : backendReady === false ? "text-red-300" : "text-white/40"}>
-              {backendReady ? "configurado" : backendReady === false ? "não configurado" : "verificando..."}
+              {backendReady ? "GPU pronta" : backendReady === false ? "GPU indisponível" : "verificando..."}
             </span>
           </div>
 

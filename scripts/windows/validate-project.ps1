@@ -53,7 +53,10 @@ $scripts = @(
     "scripts/windows/start-web.ps1",
     "scripts/windows/show-job.ps1",
     "scripts/windows/validate-project.ps1",
-    "scripts/windows/go-nvidia.ps1"
+    "scripts/windows/go-nvidia.ps1",
+    "scripts/windows/start-all.ps1",
+    "scripts/windows/status.ps1",
+    "scripts/windows/stop-all.ps1"
 )
 foreach ($script in $scripts) {
     if (-not (Test-Path $script)) {

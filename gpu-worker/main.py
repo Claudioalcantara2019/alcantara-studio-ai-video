@@ -14,7 +14,9 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Alcantara Studio GPU Worker", version="0.3.0")
 jobs: dict[str, dict] = {}
-GPU_CONCURRENCY = 1
+GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
+MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
+MAX_UPLOAD_BYTES = int(__import__("os").getenv("MAX_UPLOAD_BYTES", str(500 * 1024 * 1024)))
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
 
 def save_job(job: dict) -> None:
@@ -42,6 +44,32 @@ def load_jobs() -> None:
 # Restore persisted jobs whenever the worker starts so status/result survive restarts.
 load_jobs()
 
+
+def utc_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
+def mark_interrupted_jobs() -> None:
+    # A Python asyncio task cannot survive a process restart. Do not leave
+    # queued/processing jobs looking alive forever after a worker restart.
+    changed = False
+    for job in jobs.values():
+        if job.get("status") in {"queued", "processing"}:
+            job["status"] = "failed"
+            job["stage"] = "failed"
+            job["progress"] = 0
+            job["message"] = "Processamento interrompido pela reinicialização do worker. Envie novamente."
+            job["error"] = job["message"]
+            job["failedAt"] = utc_now()
+            save_job(job)
+            changed = True
+    return changed
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    mark_interrupted_jobs()
 def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
     import subprocess
 
@@ -98,6 +126,13 @@ def probe_media(path: Path) -> dict:
     except json.JSONDecodeError:
         raise RuntimeError(f"Resposta inválida do ffprobe para {path.name}")
 
+
+
+def file_size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0
 
 
 def cleanup_old_jobs(max_age_hours: int = 72) -> None:
@@ -162,6 +197,7 @@ async def process_job(job_id: str) -> None:
     job = jobs[job_id]
     async with GPU_SEMAPHORE:
         job["status"] = "processing"
+        job["startedAt"] = utc_now()
         job["progress"] = 5
         job["message"] = "Preparando vídeo para o processamento..."
         job["stage"] = "normalizing"
@@ -268,6 +304,7 @@ async def process_job(job_id: str) -> None:
             )
 
             job["status"] = "completed"
+            job["completedAt"] = utc_now()
             job["progress"] = 100
             job["stage"] = "completed"
             job["message"] = "Vídeo pronto."
@@ -280,6 +317,7 @@ async def process_job(job_id: str) -> None:
             job["stage"] = "failed"
             job["message"] = f"Erro: {str(exc)}"
             job["error"] = str(exc)
+            job["failedAt"] = utc_now()
             save_job(job)
 
 
@@ -347,6 +385,10 @@ def health() -> dict:
         "queued": queued,
         "processing": processing,
         "gpu_concurrency": GPU_CONCURRENCY,
+        "limits": {
+            "max_video_duration_seconds": MAX_VIDEO_DURATION_SECONDS,
+            "max_upload_bytes": MAX_UPLOAD_BYTES,
+        },
         "readiness": readiness,
     }
 
@@ -423,6 +465,56 @@ async def generate(
         shutil.rmtree(workdir, ignore_errors=True)
         raise
 
+    video_size = file_size(video_path)
+    audio_size = file_size(audio_path)
+    if video_size == 0 or audio_size == 0:
+        shutil.rmtree(workdir, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Um dos arquivos enviados está vazio.", "code": "EMPTY_UPLOAD"},
+        )
+
+    if video_size > MAX_UPLOAD_BYTES or audio_size > MAX_UPLOAD_BYTES:
+        shutil.rmtree(workdir, ignore_errors=True)
+        limit_mb = MAX_UPLOAD_BYTES / (1024 * 1024)
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": f"Arquivo excede o limite de {limit_mb:.0f} MB.",
+                "code": "UPLOAD_TOO_LARGE",
+            },
+        )
+
+    try:
+        video_probe = probe_media(video_path)
+        audio_probe = probe_media(audio_path)
+        video_duration = float(video_probe.get("format", {}).get("duration", 0))
+        audio_duration = float(audio_probe.get("format", {}).get("duration", 0))
+    except Exception as exc:
+        shutil.rmtree(workdir, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={"error": str(exc), "code": "INVALID_MEDIA"},
+        )
+
+    if video_duration <= 0 or audio_duration <= 0:
+        shutil.rmtree(workdir, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Não foi possível determinar a duração dos arquivos.", "code": "INVALID_DURATION"},
+        )
+
+    if video_duration > MAX_VIDEO_DURATION_SECONDS or audio_duration > MAX_VIDEO_DURATION_SECONDS:
+        shutil.rmtree(workdir, ignore_errors=True)
+        limit_min = MAX_VIDEO_DURATION_SECONDS / 60
+        return JSONResponse(
+            status_code=413,
+            content={
+                "error": f"Por segurança, o processamento está limitado a {limit_min:.0f} minutos por arquivo.",
+                "code": "MEDIA_TOO_LONG",
+            },
+        )
+
     jobs[job_id] = {
         "jobId": job_id,
         "status": "queued",
@@ -431,7 +523,18 @@ async def generate(
         "audio_filename": audio_path.name,
         "progress": 0,
         "stage": "queued",
-        "message": "Job aguardando a GPU..."
+        "message": "Job aguardando a GPU...",
+        "createdAt": utc_now(),
+        "limits": {
+            "maxDurationSeconds": MAX_VIDEO_DURATION_SECONDS,
+            "maxUploadBytes": MAX_UPLOAD_BYTES,
+        },
+        "upload": {
+            "videoBytes": video_size,
+            "audioBytes": audio_size,
+            "videoDuration": round(video_duration, 3),
+            "audioDuration": round(audio_duration, 3),
+        }
     }
 
     save_job(jobs[job_id])

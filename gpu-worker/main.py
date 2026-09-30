@@ -151,36 +151,39 @@ async def process_job(job_id: str) -> None:
     async with GPU_SEMAPHORE:
         job["status"] = "processing"
         job["progress"] = 5
-        save_job(job)
         job["message"] = "Preparando vídeo para o processamento..."
         job["stage"] = "normalizing"
+        save_job(job)
         workdir = DATA_DIR / job_id
 
         try:
             video_info = probe_media(workdir / "input.mp4")
-        audio_info = probe_media(workdir / job["audio_filename"])
-        video_duration = float(video_info.get("format", {}).get("duration", 0))
-        audio_duration = float(audio_info.get("format", {}).get("duration", 0))
-        video_streams = [s for s in video_info.get("streams", []) if s.get("codec_type") == "video"]
-        audio_streams = [s for s in audio_info.get("streams", []) if s.get("codec_type") == "audio"]
-        if not video_streams:
-            raise RuntimeError("O arquivo enviado não contém uma faixa de vídeo válida.")
-        if not audio_streams:
-            raise RuntimeError("O arquivo enviado não contém uma faixa de áudio válida.")
-        job["media"] = {
-            "video_duration": round(video_duration, 3),
-            "audio_duration": round(audio_duration, 3),
-            "video_codec": video_streams[0].get("codec_name"),
-            "audio_codec": audio_streams[0].get("codec_name"),
-        }
-        save_job(job)
-        if video_duration + 0.5 < audio_duration:
-            raise RuntimeError(
-                f"O vídeo-base ({video_duration:.1f}s) é menor que a música ({audio_duration:.1f}s). "
-                "O vídeo precisa cobrir toda a duração da música."
-            )
+            audio_info = probe_media(workdir / job["audio_filename"])
+            video_duration = float(video_info.get("format", {}).get("duration", 0))
+            audio_duration = float(audio_info.get("format", {}).get("duration", 0))
+            video_streams = [s for s in video_info.get("streams", []) if s.get("codec_type") == "video"]
+            audio_streams = [s for s in audio_info.get("streams", []) if s.get("codec_type") == "audio"]
 
-        normalized_video = workdir / "musetalk_input_25fps.mp4"
+            if not video_streams:
+                raise RuntimeError("O arquivo enviado não contém uma faixa de vídeo válida.")
+            if not audio_streams:
+                raise RuntimeError("O arquivo enviado não contém uma faixa de áudio válida.")
+
+            job["media"] = {
+                "video_duration": round(video_duration, 3),
+                "audio_duration": round(audio_duration, 3),
+                "video_codec": video_streams[0].get("codec_name"),
+                "audio_codec": audio_streams[0].get("codec_name"),
+            }
+            save_job(job)
+
+            if video_duration + 0.5 < audio_duration:
+                raise RuntimeError(
+                    f"O vídeo-base ({video_duration:.1f}s) é menor que a música ({audio_duration:.1f}s). "
+                    "O vídeo precisa cobrir toda a duração da música."
+                )
+
+            normalized_video = workdir / "musetalk_input_25fps.mp4"
             await asyncio.to_thread(
                 normalize_video_for_musetalk,
                 workdir / "input.mp4",
@@ -191,6 +194,7 @@ async def process_job(job_id: str) -> None:
             job["message"] = "Executando MuseTalk..."
             job["stage"] = "musetalk"
             save_job(job)
+
             musetalk_output = await asyncio.to_thread(
                 run_musetalk,
                 normalized_video,
@@ -202,6 +206,7 @@ async def process_job(job_id: str) -> None:
             job["message"] = "Aplicando cenário..."
             job["stage"] = "scene"
             save_job(job)
+
             composed_path = workdir / "composed.mp4"
             await asyncio.to_thread(
                 compose_scene,
@@ -214,6 +219,7 @@ async def process_job(job_id: str) -> None:
             job["message"] = "Finalizando vídeo..."
             job["stage"] = "finalizing"
             save_job(job)
+
             final_path = workdir / "final.mp4"
             await asyncio.to_thread(
                 finalize_video,
@@ -228,6 +234,7 @@ async def process_job(job_id: str) -> None:
             job["message"] = "Vídeo pronto."
             job["resultUrl"] = f"/jobs/{job_id}/result"
             save_job(job)
+
         except Exception as exc:
             job["status"] = "failed"
             job["progress"] = 0

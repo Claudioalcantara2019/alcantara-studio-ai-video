@@ -12,6 +12,23 @@ Aplicação web do Alcantara Studio para transformar um vídeo-base de apresenta
 6. Receber o MP4 final.
 7. Disponibilizar o resultado para download.
 
+## Estrutura local do projeto
+
+O repositório contém o código do aplicativo e do worker GPU. Os modelos grandes do MuseTalk e os arquivos temporários de processamento não devem ser versionados no GitHub; eles ficam na máquina de processamento, usando os volumes definidos no Docker Compose.
+
+Estrutura conceitual:
+
+```text
+alcantara-studio-ai-video/
+├── app/                 # interface web e API
+├── gpu-worker/          # processamento com MuseTalk
+├── lib/                 # tipos e regras compartilhadas
+├── docker-compose.gpu.yml
+└── README.md
+```
+
+No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
+
 ## Arquitetura
 
 Interface Next.js/Vercel

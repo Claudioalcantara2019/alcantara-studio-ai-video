@@ -260,27 +260,54 @@ async def process_job(job_id: str) -> None:
             save_job(job)
 
 
+def runtime_readiness() -> dict:
+    required_tools = {
+        "ffmpeg": shutil.which("ffmpeg") is not None,
+        "ffprobe": shutil.which("ffprobe") is not None,
+    }
+
+    required_models = {
+        "musetalk": Path("/opt/MuseTalk/models/musetalkV15/unet.pth").is_file(),
+        "whisper": Path("/opt/MuseTalk/models/whisper/pytorch_model.bin").is_file(),
+        "dwpose": Path("/opt/MuseTalk/models/dwpose/dw-ll_ucoco_384.pth").is_file(),
+        "face_parse": Path("/opt/MuseTalk/models/face-parse-bisent/79999_iter.pth").is_file(),
+        "syncnet": Path("/opt/MuseTalk/models/syncnet/latentsync_syncnet.pt").is_file(),
+        "sd_vae": Path("/opt/MuseTalk/models/sd-vae/diffusion_pytorch_model.bin").is_file(),
+    }
+
+    return {
+        "tools": required_tools,
+        "models": required_models,
+        "ready": all(required_tools.values()) and all(required_models.values()),
+    }
+
+
 @app.get("/health")
 def health() -> dict:
     cleanup_old_jobs()
 
     queued = sum(1 for job in jobs.values() if job.get("status") == "queued")
     processing = sum(1 for job in jobs.values() if job.get("status") == "processing")
-
-    ffmpeg_ok = shutil.which("ffmpeg") is not None
-    ffprobe_ok = shutil.which("ffprobe") is not None
+    readiness = runtime_readiness()
 
     return {
-        "ok": ffmpeg_ok and ffprobe_ok,
+        "ok": readiness["ready"],
         "service": "alcantara-studio-gpu-worker",
         "musetalk": "MuseTalk 1.5",
         "jobs": len(jobs),
         "queued": queued,
         "processing": processing,
         "gpu_concurrency": GPU_CONCURRENCY,
-        "ffmpeg": ffmpeg_ok,
-        "ffprobe": ffprobe_ok,
+        "readiness": readiness,
     }
+
+
+@app.get("/ready")
+def ready():
+    readiness = runtime_readiness()
+    if not readiness["ready"]:
+        return JSONResponse(status_code=503, content=readiness)
+    return readiness
 
 
 def validate_upload_metadata(video: UploadFile, audio: UploadFile) -> str | None:

@@ -13,6 +13,9 @@ services:
       start_period: 60s
     environment:
       MUSETALK_DIR: /opt/MuseTalk
+      GPU_CONCURRENCY: "1"
+      MAX_VIDEO_DURATION_SECONDS: "900"
+      MAX_UPLOAD_BYTES: "524288000"
     volumes:
       - musetalk-models:/opt/MuseTalk/models
       - alcantara-jobs:/data/jobs

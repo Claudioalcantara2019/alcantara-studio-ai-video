@@ -50,6 +50,16 @@ Na raiz do projeto:
 
 Esse comando não altera nada e não inicia jobs. Ele mostra Node/npm/Python/Docker, NVIDIA, acesso da GPU pelo Docker, estado do worker e arquivos principais. É útil para descobrir rapidamente qual camada está faltando.
 
+## 4. Portão NVIDIA
+
+Antes do worker, execute:
+
+```powershell
+.\\scripts\\windows\\go-nvidia.ps1
+```
+
+Se esse comando falhar, pare aqui: ainda não é hora de iniciar o MuseTalk. Ele precisa confirmar que o Windows enxerga a NVIDIA e que um container CUDA consegue acessar a GPU.
+
 ## 4. Subir o worker
 
 Na raiz do projeto:

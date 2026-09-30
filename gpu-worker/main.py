@@ -671,6 +671,81 @@ def cancel_job(job_id: str):
     return job
 
 
+@app.get("/jobs")
+def list_jobs(limit: int = 20):
+    cleanup_old_jobs()
+    safe_limit = max(1, min(limit, 100))
+    items = sorted(
+        jobs.values(),
+        key=lambda item: item.get("createdAt", ""),
+        reverse=True,
+    )[:safe_limit]
+    return {
+        "jobs": items,
+        "count": len(items),
+    }
+
+
+@app.post("/jobs/{job_id}/retry")
+async def retry_job(job_id: str):
+    original = jobs.get(job_id)
+    if not original:
+        return JSONResponse(status_code=404, content={"error": "Job não encontrado."})
+
+    if original.get("status") not in {"failed", "cancelled"}:
+        return JSONResponse(
+            status_code=409,
+            content={"error": "Somente jobs falhos ou cancelados podem ser repetidos."},
+        )
+
+    original_dir = DATA_DIR / job_id
+    source_video = original_dir / "input.mp4"
+    source_audio = original_dir / original.get("audio_filename", "")
+    if not source_video.is_file() or not source_audio.is_file():
+        return JSONResponse(
+            status_code=410,
+            content={"error": "Os arquivos originais deste job já foram removidos pela retenção."},
+        )
+
+    new_job_id = uuid4().hex
+    workdir = DATA_DIR / new_job_id
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        shutil.copy2(source_video, workdir / "input.mp4")
+        retry_audio = workdir / source_audio.name
+        shutil.copy2(source_audio, retry_audio)
+
+        new_job = {
+            "jobId": new_job_id,
+            "status": "queued",
+            "format": original["format"],
+            "scene": original["scene"],
+            "audio_filename": retry_audio.name,
+            "progress": 0,
+            "stage": "queued",
+            "message": "Job repetido e aguardando a GPU...",
+            "createdAt": utc_now(),
+            "retryOf": job_id,
+            "limits": original.get("limits", {
+                "maxDurationSeconds": MAX_VIDEO_DURATION_SECONDS,
+                "maxUploadBytes": MAX_UPLOAD_BYTES,
+            }),
+            "upload": original.get("upload"),
+            "performance": None,
+        }
+        jobs[new_job_id] = new_job
+        save_job(new_job)
+        asyncio.create_task(process_job(new_job_id))
+        return new_job
+    except Exception as exc:
+        shutil.rmtree(workdir, ignore_errors=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Não foi possível repetir o job: {exc}"},
+        )
+
+
 @app.get("/jobs/{job_id}")
 def job_status(job_id: str):
     job = jobs.get(job_id)

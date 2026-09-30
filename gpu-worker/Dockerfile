@@ -43,4 +43,4 @@ RUN chmod +x /app/download_models.sh
 RUN mkdir -p /data/jobs
 
 EXPOSE 8000
-CMD ["python3.10", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/bash", "-lc", "/app/download_models.sh && exec python3.10 -m uvicorn main:app --host 0.0.0.0 --port 8000"]

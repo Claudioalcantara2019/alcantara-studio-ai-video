@@ -15,7 +15,7 @@ export const SCENE_OPTIONS: SceneOption[] = [
 
 export type JobResponse = {
   jobId: string;
-  status: "queued" | "processing" | "completed" | "failed";
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
   format: VideoFormat;
   message?: string;
   resultUrl?: string;

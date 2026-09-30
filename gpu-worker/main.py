@@ -1,5 +1,6 @@
 import asyncio
 import shutil
+import threading
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -12,13 +13,14 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.6.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.7.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
 MAX_UPLOAD_BYTES = int(__import__("os").getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
 MAX_JOB_AGE_HOURS = max(1, int(__import__("os").getenv("MAX_JOB_AGE_HOURS", "72")))
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
+cancel_events: dict[str, threading.Event] = {}
 
 def save_job(job: dict) -> None:
     job_dir = DATA_DIR / job["jobId"]
@@ -237,7 +239,17 @@ def finalize_video(source: Path, audio: Path, destination: Path, video_format: s
 
 async def process_job(job_id: str) -> None:
     job = jobs[job_id]
+    cancel_event = cancel_events.setdefault(job_id, threading.Event())
     async with GPU_SEMAPHORE:
+        if cancel_event.is_set():
+            job["status"] = "cancelled"
+            job["stage"] = "cancelled"
+            job["message"] = "Job cancelado antes de iniciar."
+            job["cancelledAt"] = utc_now()
+            save_job(job)
+            cancel_events.pop(job_id, None)
+            return
+
         job["status"] = "processing"
         job["startedAt"] = utc_now()
         job["progress"] = 5
@@ -247,6 +259,9 @@ async def process_job(job_id: str) -> None:
         workdir = DATA_DIR / job_id
 
         try:
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelado pelo usuário.")
+
             video_info = probe_media(workdir / "input.mp4")
             audio_info = probe_media(workdir / job["audio_filename"])
             video_duration = float(video_info.get("format", {}).get("duration", 0))
@@ -297,6 +312,7 @@ async def process_job(job_id: str) -> None:
                 normalized_video,
                 workdir / job["audio_filename"],
                 workdir,
+                cancel_event,
             )
 
             # Keep the generated video aligned to the requested music duration.
@@ -318,6 +334,9 @@ async def process_job(job_id: str) -> None:
                 if trim.returncode != 0:
                     raise RuntimeError("Não foi possível ajustar a duração do resultado MuseTalk.")
                 musetalk_output = trimmed_musetalk
+
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelado pelo usuário.")
 
             job["progress"] = 80
             job["message"] = "Aplicando cenário..."
@@ -365,6 +384,16 @@ async def process_job(job_id: str) -> None:
             save_job(job)
 
         except Exception as exc:
+            if cancel_event.is_set() or str(exc) == "Job cancelado pelo usuário.":
+                job["status"] = "cancelled"
+                job["progress"] = 0
+                job["stage"] = "cancelled"
+                job["message"] = "Job cancelado pelo usuário."
+                job["cancelledAt"] = utc_now()
+                save_job(job)
+                cancel_events.pop(job_id, None)
+                return
+
             job["status"] = "failed"
             job["progress"] = 0
             job["stage"] = "failed"
@@ -612,6 +641,23 @@ async def generate(
     save_job(jobs[job_id])
     asyncio.create_task(process_job(job_id))
     return jobs[job_id]
+
+
+@app.delete("/jobs/{job_id}")
+def cancel_job(job_id: str):
+    job = jobs.get(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": "Job não encontrado."})
+
+    if job.get("status") in {"completed", "failed", "cancelled"}:
+        return JSONResponse(status_code=409, content={"error": "Job não pode mais ser cancelado."})
+
+    event = cancel_events.setdefault(job_id, threading.Event())
+    event.set()
+    job["cancelRequestedAt"] = utc_now()
+    job["message"] = "Cancelamento solicitado..."
+    save_job(job)
+    return job
 
 
 @app.get("/jobs/{job_id}")

@@ -17,6 +17,8 @@ export default function Home() {
   const [stage, setStage] = useState("idle");
   const [jobId, setJobId] = useState<string | null>(null);
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
 
   const videoName = useMemo(() => video?.name ?? "Nenhum vídeo selecionado", [video]);
   const audioName = useMemo(() => audio?.name ?? "Nenhum áudio selecionado", [audio]);
@@ -41,18 +43,48 @@ export default function Home() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  function readMediaDuration(file: File, kind: "video" | "audio") {
+    const url = URL.createObjectURL(file);
+    const media = kind === "video" ? document.createElement("video") : document.createElement("audio");
+    media.preload = "metadata";
+    media.onloadedmetadata = () => {
+      const duration = Number.isFinite(media.duration) ? media.duration : null;
+      if (kind === "video") setVideoDuration(duration);
+      else setAudioDuration(duration);
+      URL.revokeObjectURL(url);
+    };
+    media.onerror = () => {
+      if (kind === "video") setVideoDuration(null);
+      else setAudioDuration(null);
+      URL.revokeObjectURL(url);
+    };
+    media.src = url;
+  }
+
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
-    setVideo(event.target.files?.[0] ?? null);
+    const selected = event.target.files?.[0] ?? null;
+    setVideo(selected);
+    setVideoDuration(null);
+    if (selected) readMediaDuration(selected, "video");
     setResultUrl(null);
     setJobId(null);
     setStatus("Vídeo selecionado.");
   }
 
   function selectAudio(event: ChangeEvent<HTMLInputElement>) {
-    setAudio(event.target.files?.[0] ?? null);
+    const selected = event.target.files?.[0] ?? null;
+    setAudio(selected);
+    setAudioDuration(null);
+    if (selected) readMediaDuration(selected, "audio");
     setResultUrl(null);
     setJobId(null);
     setStatus("Áudio selecionado.");
+  }
+
+  function formatDuration(seconds: number | null) {
+    if (seconds === null) return "--:--";
+    const total = Math.round(seconds);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
   }
 
   async function waitForJob(id: string) {
@@ -111,6 +143,11 @@ export default function Home() {
     const allowedAudio = [".mp3", ".wav", ".m4a", ".aac", ".flac"];
     if (!allowedAudio.some((extension) => audio.name.toLowerCase().endsWith(extension))) {
       setStatus("A música precisa estar em MP3, WAV, M4A, AAC ou FLAC.");
+      return;
+    }
+
+    if (videoDuration !== null && audioDuration !== null && videoDuration + 0.5 < audioDuration) {
+      setStatus(`O vídeo-base (${formatDuration(videoDuration)}) é menor que a música (${formatDuration(audioDuration)}).`);
       return;
     }
 
@@ -188,6 +225,20 @@ export default function Home() {
               {audio && <span className="mt-1 block text-[11px] text-white/40">{formatBytes(audio.size)}</span>}
               <input className="hidden" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,audio/*" onChange={selectAudio} />
             </label>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/5 bg-black/20 px-4 py-3">
+              <span className="block text-[10px] uppercase tracking-wider text-white/35">Duração do vídeo</span>
+              <span className="mt-1 block text-sm font-semibold text-[var(--gold-light)]">{formatDuration(videoDuration)}</span>
+            </div>
+            <div className="rounded-xl border border-white/5 bg-black/20 px-4 py-3">
+              <span className="block text-[10px] uppercase tracking-wider text-white/35">Duração da música</span>
+              <span className="mt-1 block text-sm font-semibold text-[var(--gold-light)]">{formatDuration(audioDuration)}</span>
+            </div>
+          </div>
+          <div className="mt-3 rounded-xl border border-white/5 bg-black/10 px-4 py-3 text-xs text-white/40">
+            O vídeo-base precisa cobrir toda a duração da música. A conferência também é repetida pelo backend antes de ocupar a GPU.
           </div>
 
           <div className="mt-7">

@@ -12,6 +12,28 @@ Aplicação web do Alcantara Studio para transformar um vídeo-base de apresenta
 6. Receber o MP4 final.
 7. Disponibilizar o resultado para download.
 
+## Processamento de vídeos longos
+
+O worker foi preparado para o fluxo de músicas longas, como uma faixa de 4 minutos ou mais.
+
+- Limite padrão por arquivo: **15 minutos**.
+- Limite padrão de upload: **500 MB por arquivo**.
+- A duração do vídeo-base deve cobrir a duração da música.
+- O worker mede as durações antes de ocupar a GPU.
+- Jobs em andamento não continuam automaticamente depois de uma reinicialização do worker; eles são marcados como interrompidos para evitar jobs presos na fila.
+- O job registra timestamps, tamanho dos arquivos e limites utilizados.
+- Esses limites podem ser alterados por variáveis de ambiente.
+
+Variáveis principais:
+
+```text
+GPU_CONCURRENCY=1
+MAX_VIDEO_DURATION_SECONDS=900
+MAX_UPLOAD_BYTES=524288000
+```
+
+A limitação é deliberadamente conservadora nesta fase. Ela pode ser ampliada depois que o processamento real de vídeos de 4:17 for validado em uma GPU NVIDIA.
+
 ## Estrutura local do projeto
 
 O repositório contém o código do aplicativo e do worker GPU. Os modelos grandes do MuseTalk e os arquivos temporários de processamento não devem ser versionados no GitHub; eles ficam na máquina de processamento, usando os volumes definidos no Docker Compose.

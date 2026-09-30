@@ -121,6 +121,17 @@ def health() -> dict:
     }
 
 
+def validate_upload_metadata(video: UploadFile, audio: UploadFile) -> str | None:
+    video_name = (video.filename or "").lower()
+    audio_name = (audio.filename or "").lower()
+
+    if video_name and Path(video_name).suffix not in {".mp4", ".mov", ".mkv", ".webm"}:
+        return "O vídeo deve estar em MP4, MOV, MKV ou WebM."
+    if audio_name and Path(audio_name).suffix not in {".mp3", ".wav", ".m4a", ".aac", ".flac"}:
+        return "O áudio deve estar em MP3, WAV, M4A, AAC ou FLAC."
+    return None
+
+
 @app.post("/generate")
 async def generate(
     video: UploadFile = File(...),
@@ -140,6 +151,10 @@ async def generate(
             status_code=400,
             content={"error": "Formato deve ser 16:9 ou 9:16."},
         )
+
+    upload_error = validate_upload_metadata(video, audio)
+    if upload_error:
+        return JSONResponse(status_code=400, content={"error": upload_error})
 
     job_id = uuid4().hex
     workdir = DATA_DIR / job_id

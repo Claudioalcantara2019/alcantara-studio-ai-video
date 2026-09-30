@@ -115,6 +115,21 @@ export default function Home() {
     return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
   }
 
+  async function cancelJob() {
+    if (!jobId) return;
+    try {
+      const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "Não foi possível cancelar o job.");
+      }
+      setStatus("Cancelamento solicitado. A GPU vai interromper o processamento.");
+      setStage("cancelling");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Erro ao cancelar o job.");
+    }
+  }
+
   async function waitForJob(id: string) {
     const started = Date.now();
     const maxWait = 60 * 60 * 1000;
@@ -143,6 +158,13 @@ export default function Home() {
 
       setProgress(typeof data.progress === "number" ? data.progress : 0);
       setStage(typeof data.stage === "string" ? data.stage : data.status);
+
+      if (data.status === "cancelled") {
+        setProgress(0);
+        setStage("cancelled");
+        setStatus("Job cancelado.");
+        return;
+      }
 
       if (data.status === "failed") {
         throw new Error(data.message ?? data.error ?? "O processamento falhou.");
@@ -381,6 +403,16 @@ export default function Home() {
             {status}
             {jobId && <span className="mt-1 block text-[10px] text-white/30">Job: {jobId}</span>}
           </div>
+
+          {busy && jobId && (
+            <button
+              type="button"
+              onClick={cancelJob}
+              className="mt-3 w-full rounded-xl border border-red-400/40 px-5 py-3 text-xs font-bold text-red-200 transition hover:bg-red-400/10"
+            >
+              CANCELAR PROCESSAMENTO
+            </button>
+          )}
 
           {busy && (
             <div className="mt-3">

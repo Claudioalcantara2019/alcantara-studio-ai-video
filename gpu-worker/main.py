@@ -241,7 +241,7 @@ async def process_job(job_id: str) -> None:
     job = jobs[job_id]
     cancel_event = cancel_events.setdefault(job_id, threading.Event())
     async with GPU_SEMAPHORE:
-        if cancel_event.is_set():
+        if job.get("status") == "cancelled" or cancel_event.is_set():
             job["status"] = "cancelled"
             job["stage"] = "cancelled"
             job["message"] = "Job cancelado antes de iniciar."
@@ -302,6 +302,9 @@ async def process_job(job_id: str) -> None:
                 normalized_video,
             )
 
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelado pelo usuário.")
+
             job["progress"] = 15
             job["message"] = "Executando MuseTalk..."
             job["stage"] = "musetalk"
@@ -351,6 +354,9 @@ async def process_job(job_id: str) -> None:
                 job["scene"],
             )
 
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelado pelo usuário.")
+
             job["progress"] = 90
             job["message"] = "Finalizando vídeo..."
             job["stage"] = "finalizing"
@@ -364,6 +370,9 @@ async def process_job(job_id: str) -> None:
                 final_path,
                 job["format"],
             )
+
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelado pelo usuário.")
 
             job["status"] = "completed"
             job["completedAt"] = utc_now()

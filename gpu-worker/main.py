@@ -346,15 +346,12 @@ async def process_job(job_id: str) -> None:
             target_duration = audio_duration
             if generated_duration > target_duration + 0.05:
                 trimmed_musetalk = workdir / "musetalk_trimmed.mp4"
-                import subprocess
-                trim = subprocess.run(
-                    [
-                        "ffmpeg", "-y", "-i", str(musetalk_output),
-                        "-t", f"{target_duration:.3f}",
-                        "-c", "copy",
-                        str(trimmed_musetalk),
-                    ],
-                )
+                trim = [
+                    "ffmpeg", "-y", "-i", str(musetalk_output),
+                    "-t", f"{target_duration:.3f}",
+                    "-c", "copy",
+                    str(trimmed_musetalk),
+                ]
                 run_process(trim, cancel_event, "Ajuste de duração")
                 musetalk_output = trimmed_musetalk
 

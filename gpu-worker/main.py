@@ -133,17 +133,26 @@ def finalize_video(source: Path, destination: Path, video_format: str) -> None:
     )
 
     command = [
-        "ffmpeg", "-y", "-i", str(source),
+        "ffmpeg", "-y",
+        "-i", str(source),
+        "-map", "0:v:0",
+        "-map", "0:a:0?",
         "-vf", vf,
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k",
-        "-movflags", "+faststart", str(destination),
+        "-ar", "48000",
+        "-shortest",
+        "-movflags", "+faststart",
+        str(destination),
     ]
 
     import subprocess
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr[-5000:])
+
+    if not destination.is_file() or destination.stat().st_size == 0:
+        raise RuntimeError("O vídeo final não foi criado corretamente.")
 
 
 async def process_job(job_id: str) -> None:

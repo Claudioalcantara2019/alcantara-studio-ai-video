@@ -266,6 +266,16 @@ def runtime_readiness() -> dict:
         "ffprobe": shutil.which("ffprobe") is not None,
     }
 
+    gpu_available = False
+    gpu_name = None
+    try:
+        import torch
+        gpu_available = bool(torch.cuda.is_available())
+        if gpu_available:
+            gpu_name = torch.cuda.get_device_name(0)
+    except Exception:
+        gpu_available = False
+
     required_models = {
         "musetalk": Path("/opt/MuseTalk/models/musetalkV15/unet.pth").is_file(),
         "whisper": Path("/opt/MuseTalk/models/whisper/pytorch_model.bin").is_file(),
@@ -277,8 +287,16 @@ def runtime_readiness() -> dict:
 
     return {
         "tools": required_tools,
+        "gpu": {
+            "available": gpu_available,
+            "name": gpu_name,
+        },
         "models": required_models,
-        "ready": all(required_tools.values()) and all(required_models.values()),
+        "ready": (
+            all(required_tools.values())
+            and gpu_available
+            and all(required_models.values())
+        ),
     }
 
 

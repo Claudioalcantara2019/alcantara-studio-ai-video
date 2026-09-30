@@ -43,6 +43,7 @@ def finalize_video(source: Path, destination: Path, video_format: str) -> None:
 async def process_job(job_id: str) -> None:
     job = jobs[job_id]
     job["status"] = "processing"
+    job["message"] = "Preparando processamento com MuseTalk..."
     workdir = DATA_DIR / job_id
 
     try:
@@ -62,9 +63,11 @@ async def process_job(job_id: str) -> None:
         )
 
         job["status"] = "completed"
+        job["message"] = "Vídeo pronto."
         job["resultUrl"] = f"/jobs/{job_id}/result"
     except Exception as exc:
         job["status"] = "failed"
+        job["message"] = "O processamento falhou."
         job["error"] = str(exc)
 
 

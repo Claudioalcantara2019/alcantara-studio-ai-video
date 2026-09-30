@@ -15,6 +15,22 @@ app = FastAPI(title="Alcantara Studio GPU Worker", version="0.2.0")
 jobs: dict[str, dict] = {}
 
 
+
+def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
+    import subprocess
+
+    command = [
+        "ffmpeg", "-y", "-i", str(source),
+        "-vf", "fps=25",
+        "-an",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        str(destination),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr[-5000:])
+
+
 def output_size(video_format: str) -> tuple[int, int]:
     return (1920, 1080) if video_format == "16:9" else (1080, 1920)
 
@@ -56,9 +72,16 @@ async def process_job(job_id: str) -> None:
     workdir = DATA_DIR / job_id
 
     try:
+        normalized_video = workdir / "musetalk_input_25fps.mp4"
+        await asyncio.to_thread(
+            normalize_video_for_musetalk,
+            workdir / "input.mp4",
+            normalized_video,
+        )
+
         musetalk_output = await asyncio.to_thread(
             run_musetalk,
-            workdir / "input.mp4",
+            normalized_video,
             workdir / "audio.mp3",
             workdir,
         )

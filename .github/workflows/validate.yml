@@ -14,11 +14,46 @@ jobs:
           python-version: "3.10"
       - name: Compile GPU worker
         run: python -m py_compile gpu-worker/main.py gpu-worker/musetalk_runner.py
-      - name: Verify key worker endpoints exist
+      - name: Verify key worker contracts
         run: |
           grep -q '@app.post("/generate")' gpu-worker/main.py
           grep -q '@app.get("/ready")' gpu-worker/main.py
           grep -q '@app.get("/gpu")' gpu-worker/main.py
+          grep -q 'VIDEO_SHORTER_THAN_AUDIO' gpu-worker/main.py
+          grep -q 'MAX_JOB_AGE_HOURS' gpu-worker/main.py
+          grep -q '"performance"' gpu-worker/main.py
+
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Windows scripts
+        shell: pwsh
+        run: |
+          $scripts = @(
+            "scripts/windows/check-gpu.ps1",
+            "scripts/windows/start-gpu-worker.ps1",
+            "scripts/windows/start-web.ps1",
+            "scripts/windows/show-job.ps1",
+            "scripts/windows/validate-project.ps1"
+          )
+
+          foreach ($script in $scripts) {
+            if (-not (Test-Path $script)) {
+              throw "Missing script: $script"
+            }
+
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$null,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors.Count -gt 0) {
+              throw "PowerShell syntax error in $script"
+            }
+          }
 
   web:
     runs-on: ubuntu-latest

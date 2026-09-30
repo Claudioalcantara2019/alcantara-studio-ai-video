@@ -13,6 +13,8 @@ type HistoryJob = {
   message?: string;
   createdAt?: string;
   performance?: { processingSeconds?: number; generatedDurationSeconds?: number; resultBytes?: number } | null;
+  stageTiming?: Record<string, number>;
+  gpu?: { name?: string; peakAllocatedMb?: number; peakReservedMb?: number };
   retryOf?: string;
 };
 
@@ -513,6 +515,7 @@ export default function Home() {
                     <span>{item.format ?? "--"}</span>
                     <span>{item.scene ?? "--"}</span>
                     {item.performance?.processingSeconds != null && <span>{Math.round(item.performance.processingSeconds)}s de processamento</span>}
+                    {item.gpu?.peakAllocatedMb != null && <span>VRAM pico {item.gpu.peakAllocatedMb} MB</span>}
                   </div>
                   {(item.status === "failed" || item.status === "cancelled") && (
                     <button type="button" onClick={() => retryHistoryJob(item.jobId)} disabled={busy} className="mt-3 rounded-lg border border-[var(--gold)]/50 px-3 py-2 text-[11px] font-semibold text-[var(--gold-light)] disabled:opacity-40">

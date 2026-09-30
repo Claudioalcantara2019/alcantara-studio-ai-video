@@ -131,11 +131,16 @@ async def process_job(job_id: str) -> None:
 
 @app.get("/health")
 def health() -> dict:
+    queued = sum(1 for job in jobs.values() if job.get("status") == "queued")
+    processing = sum(1 for job in jobs.values() if job.get("status") == "processing")
     return {
         "ok": True,
         "service": "alcantara-studio-gpu-worker",
         "musetalk": "MuseTalk 1.5",
         "jobs": len(jobs),
+        "queued": queued,
+        "processing": processing,
+        "gpu_concurrency": GPU_CONCURRENCY,
     }
 
 

@@ -13,7 +13,7 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.7.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.8.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))

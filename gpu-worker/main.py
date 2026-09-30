@@ -266,6 +266,13 @@ def runtime_readiness() -> dict:
         "ffprobe": shutil.which("ffprobe") is not None,
     }
 
+    python_version = None
+    try:
+        import platform
+        python_version = platform.python_version()
+    except Exception:
+        pass
+
     gpu_available = False
     gpu_name = None
     try:
@@ -287,6 +294,7 @@ def runtime_readiness() -> dict:
 
     return {
         "tools": required_tools,
+        "python": python_version,
         "gpu": {
             "available": gpu_available,
             "name": gpu_name,

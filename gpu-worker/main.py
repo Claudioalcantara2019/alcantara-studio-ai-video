@@ -107,7 +107,7 @@ async def process_job(job_id: str) -> None:
         job["resultUrl"] = f"/jobs/{job_id}/result"
     except Exception as exc:
         job["status"] = "failed"
-        job["message"] = "O processamento falhou."
+        job["message"] = f"Erro: {str(exc)}"
         job["error"] = str(exc)
 
 

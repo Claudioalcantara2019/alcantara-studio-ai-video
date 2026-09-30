@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { SCENE_OPTIONS, SceneOption } from "@/lib/job";
 
 type Format = "16:9" | "9:16";
@@ -14,52 +14,81 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("idle");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [backendReady, setBackendReady] = useState<boolean | null>(null);
 
   const videoName = useMemo(() => video?.name ?? "Nenhum vídeo selecionado", [video]);
   const audioName = useMemo(() => audio?.name ?? "Nenhum áudio selecionado", [audio]);
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/health", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        if (active) setBackendReady(Boolean(data.gpuBackendReady));
+      })
+      .catch(() => {
+        if (active) setBackendReady(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function formatBytes(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
     setVideo(event.target.files?.[0] ?? null);
     setResultUrl(null);
+    setJobId(null);
     setStatus("Vídeo selecionado.");
   }
 
   function selectAudio(event: ChangeEvent<HTMLInputElement>) {
     setAudio(event.target.files?.[0] ?? null);
     setResultUrl(null);
+    setJobId(null);
     setStatus("Áudio selecionado.");
   }
 
-  async function waitForJob(jobId: string) {
+  async function waitForJob(id: string) {
+    const started = Date.now();
+    const maxWait = 60 * 60 * 1000;
+
     for (;;) {
+      if (Date.now() - started > maxWait) {
+        throw new Error("O processamento ultrapassou o tempo de espera da interface. O job pode continuar no backend.");
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 2500));
 
-      const response = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
+      const response = await fetch(`/api/jobs/${encodeURIComponent(id)}`, { cache: "no-store" });
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Falha ao consultar o job.");
+        throw new Error(data.message ?? data.error ?? "Falha ao consultar o job.");
       }
 
       if (data.status === "completed") {
-        const url = `/api/jobs/${jobId}/result`;
-        setResultUrl(url);
+        setResultUrl(`/api/jobs/${encodeURIComponent(id)}/result`);
         setProgress(100);
+        setStage("completed");
         setStatus("Vídeo pronto.");
         return;
       }
 
       setProgress(typeof data.progress === "number" ? data.progress : 0);
+      setStage(typeof data.stage === "string" ? data.stage : data.status);
 
       if (data.status === "failed") {
-        throw new Error(data.error ?? "O processamento falhou.");
+        throw new Error(data.message ?? data.error ?? "O processamento falhou.");
       }
 
-      if (data.status === "processing") {
-        setStatus(data.message ?? "Processando... isso pode levar alguns minutos.");
-      } else {
-        setStatus(data.message ?? "Job na fila de processamento...");
-      }
+      setStatus(data.message ?? "Processando...");
     }
   }
 
@@ -69,8 +98,27 @@ export default function Home() {
       return;
     }
 
+    if (!video.name.toLowerCase().endsWith(".mp4")) {
+      setStatus("O vídeo-base precisa estar em MP4.");
+      return;
+    }
+
+    const allowedAudio = [".mp3", ".wav", ".m4a", ".aac", ".flac"];
+    if (!allowedAudio.some((extension) => audio.name.toLowerCase().endsWith(extension))) {
+      setStatus("A música precisa estar em MP3, WAV, M4A, AAC ou FLAC.");
+      return;
+    }
+
+    const maxBytes = 500 * 1024 * 1024;
+    if (video.size > maxBytes || audio.size > maxBytes) {
+      setStatus("Cada arquivo precisa ter no máximo 500 MB.");
+      return;
+    }
+
     setBusy(true);
     setResultUrl(null);
+    setJobId(null);
+    setStage("uploading");
     setProgress(0);
     setStatus("Enviando arquivos para o processamento...");
 
@@ -81,20 +129,19 @@ export default function Home() {
     form.append("scene", scene.id);
 
     try {
-      const response = await fetch("/api/jobs", {
-        method: "POST",
-        body: form
-      });
-
+      const response = await fetch("/api/jobs", { method: "POST", body: form });
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Não foi possível iniciar o processamento.");
+        throw new Error(data.error ?? data.message ?? "Não foi possível iniciar o processamento.");
       }
 
+      setJobId(data.jobId);
+      setStage(data.stage ?? "queued");
       setStatus(`Job ${data.jobId} recebido.`);
       await waitForJob(data.jobId);
     } catch (error) {
+      setStage("failed");
       setStatus(error instanceof Error ? error.message : "Erro de comunicação com o servidor.");
     } finally {
       setBusy(false);
@@ -113,19 +160,28 @@ export default function Home() {
         </header>
 
         <section className="rounded-3xl border border-white/10 bg-[var(--panel)] p-6 shadow-2xl md:p-8">
+          <div className="mb-5 flex items-center justify-between rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-xs">
+            <span className="text-white/50">Backend GPU</span>
+            <span className={backendReady ? "text-emerald-300" : backendReady === false ? "text-red-300" : "text-white/40"}>
+              {backendReady ? "configurado" : backendReady === false ? "não configurado" : "verificando..."}
+            </span>
+          </div>
+
           <div className="grid gap-5 md:grid-cols-2">
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">1. Vídeo-base</span>
               <span className="mt-2 block text-xs text-white/50">Seu vídeo cantando • MP4</span>
               <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{videoName}</span>
-              <input className="hidden" type="file" accept="video/mp4,video/*" onChange={selectVideo} />
+              {video && <span className="mt-1 block text-[11px] text-white/40">{formatBytes(video.size)}</span>}
+              <input className="hidden" type="file" accept="video/mp4" onChange={selectVideo} />
             </label>
 
             <label className="cursor-pointer rounded-2xl border border-dashed border-white/20 p-6 transition hover:border-[var(--gold)]">
               <span className="block text-sm font-semibold">2. Música</span>
               <span className="mt-2 block text-xs text-white/50">A música que terá a nova sincronização</span>
               <span className="mt-5 block truncate text-sm text-[var(--gold-light)]">{audioName}</span>
-              <input className="hidden" type="file" accept="audio/mpeg,audio/wav,audio/*" onChange={selectAudio} />
+              {audio && <span className="mt-1 block text-[11px] text-white/40">{formatBytes(audio.size)}</span>}
+              <input className="hidden" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,audio/*" onChange={selectAudio} />
             </label>
           </div>
 
@@ -173,7 +229,7 @@ export default function Home() {
               ))}
             </select>
             <p className="mt-2 text-xs text-white/40">
-              O cenário original é o foco do motor atual. Novos cenários serão adicionados depois, sem alterar o núcleo de sincronização.
+              O cenário original é o único motor ativo nesta fase. Os demais estão reservados para a próxima etapa.
             </p>
           </div>
 
@@ -188,13 +244,14 @@ export default function Home() {
 
           <div className="mt-5 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-center text-xs text-white/60">
             {status}
+            {jobId && <span className="mt-1 block text-[10px] text-white/30">Job: {jobId}</span>}
           </div>
 
           {busy && (
             <div className="mt-3">
               <div className="mb-1 flex justify-between text-[11px] text-white/40">
-                <span>Progresso</span>
-                <span>{progress}%</span>
+                <span>Processamento</span>
+                <span>{stage} • {progress}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-white/5">
                 <div className="h-full rounded-full bg-[var(--gold)] transition-all duration-500" style={{ width: progress + "%" }} />

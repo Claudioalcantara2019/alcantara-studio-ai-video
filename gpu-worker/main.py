@@ -12,11 +12,12 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.3.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.4.0")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
 MAX_UPLOAD_BYTES = int(__import__("os").getenv("MAX_UPLOAD_BYTES", str(2 * 1024 * 1024 * 1024)))
+MAX_JOB_AGE_HOURS = max(1, int(__import__("os").getenv("MAX_JOB_AGE_HOURS", "72")))
 GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
 
 def save_job(job: dict) -> None:
@@ -143,7 +144,7 @@ def file_size(path: Path) -> int:
         return 0
 
 
-def cleanup_old_jobs(max_age_hours: int = 72) -> None:
+def cleanup_old_jobs(max_age_hours: int = MAX_JOB_AGE_HOURS) -> None:
     import time
 
     now = time.time()
@@ -404,9 +405,11 @@ def health() -> dict:
         "queued": queued,
         "processing": processing,
         "gpu_concurrency": GPU_CONCURRENCY,
+        "version": app.version,
         "limits": {
             "max_video_duration_seconds": MAX_VIDEO_DURATION_SECONDS,
             "max_upload_bytes": MAX_UPLOAD_BYTES,
+            "max_job_age_hours": MAX_JOB_AGE_HOURS,
         },
         "readiness": readiness,
     }
@@ -568,7 +571,8 @@ async def generate(
             "audioBytes": audio_size,
             "videoDuration": round(video_duration, 3),
             "audioDuration": round(audio_duration, 3),
-        }
+        },
+        "performance": None,
     }
 
     save_job(jobs[job_id])

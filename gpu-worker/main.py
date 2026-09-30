@@ -13,6 +13,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Alcantara Studio GPU Worker", version="0.2.0")
 jobs: dict[str, dict] = {}
+GPU_CONCURRENCY = 1
+GPU_SEMAPHORE = asyncio.Semaphore(GPU_CONCURRENCY)
 
 
 
@@ -67,6 +69,7 @@ def finalize_video(source: Path, destination: Path, video_format: str) -> None:
 
 async def process_job(job_id: str) -> None:
     job = jobs[job_id]
+    async with GPU_SEMAPHORE:
     job["status"] = "processing"
     job["message"] = "Preparando processamento com MuseTalk..."
     workdir = DATA_DIR / job_id
@@ -79,6 +82,7 @@ async def process_job(job_id: str) -> None:
             normalized_video,
         )
 
+        job["progress"] = 15
         job["message"] = "Executando MuseTalk..."
         job["stage"] = "musetalk"
         musetalk_output = await asyncio.to_thread(
@@ -88,6 +92,7 @@ async def process_job(job_id: str) -> None:
             workdir,
         )
 
+        job["progress"] = 80
         job["message"] = "Aplicando cenário..."
         job["stage"] = "scene"
         composed_path = workdir / "composed.mp4"
@@ -98,6 +103,7 @@ async def process_job(job_id: str) -> None:
             job["scene"],
         )
 
+        job["progress"] = 90
         job["message"] = "Finalizando vídeo..."
         job["stage"] = "finalizing"
         final_path = workdir / "final.mp4"
@@ -109,11 +115,13 @@ async def process_job(job_id: str) -> None:
         )
 
         job["status"] = "completed"
+        job["progress"] = 100
         job["stage"] = "completed"
         job["message"] = "Vídeo pronto."
         job["resultUrl"] = f"/jobs/{job_id}/result"
     except Exception as exc:
         job["status"] = "failed"
+        job["progress"] = 0
         job["stage"] = "failed"
         job["message"] = f"Erro: {str(exc)}"
         job["error"] = str(exc)
@@ -188,6 +196,9 @@ async def generate(
         "status": "queued",
         "format": format,
         "scene": scene,
+        "progress": 0,
+        "stage": "queued",
+        "message": "Job aguardando a GPU..."
     }
 
     asyncio.create_task(process_job(job_id))

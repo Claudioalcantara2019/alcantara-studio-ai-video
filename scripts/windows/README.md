@@ -189,3 +189,25 @@ Exemplo curto + 4:17:
 ```
 
 O benchmark registra job ID, tempos por etapa, GPU/VRAM, duração e tamanho do resultado.
+
+### Primeiro teste NVIDIA em um comando
+
+Com uma máquina Windows + NVIDIA compatível, é possível executar todo o primeiro teste sem abrir vários scripts manualmente:
+
+```powershell
+.\scripts\windows\first-nvidia-test.ps1 `
+  -ShortVideoPath "C:\caminho\video-curto.mp4" `
+  -ShortAudioPath "C:\caminho\musica-curta.mp3" `
+  -LongVideoPath "C:\caminho\video-4m17.mp4" `
+  -LongAudioPath "C:\caminho\musica-4m17.mp3"
+```
+
+O script faz, nesta ordem:
+
+1. verifica NVIDIA + Docker;
+2. inicia e aguarda o GPU Worker;
+3. executa o benchmark curto;
+4. se os arquivos longos forem informados, executa o teste de 4:17;
+5. deixa os relatórios em `reports/`.
+
+Não é necessário iniciar o Next.js para esse primeiro teste: ele testa diretamente o backend GPU.

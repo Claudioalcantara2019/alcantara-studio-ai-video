@@ -24,4 +24,16 @@ A Vercel não executará a inferência pesada. O processamento de IA será separ
 
 ## Estado atual
 
-A interface inicial está pronta. A integração com o backend GPU será adicionada na próxima etapa.
+A interface inicial e a API de jobs estão implementadas. O backend GPU com MuseTalk 1.5 está estruturado em Docker/CUDA, com download automatizado dos modelos, volume persistente, healthcheck e reinício automático.
+
+O pipeline também possui uma camada separada de composição de cenário. O cenário "Vídeo original" funciona; as opções de cenários adicionais estão preparadas na interface e serão ativadas quando o motor de composição correspondente for implementado.
+
+## Requisitos de evolução
+
+- Interface final simples para uso diário no computador.
+- Upload de MP4 + MP3/WAV.
+- Saída 16:9 e 9:16.
+- Download direto do MP4.
+- Seleção de cenários/fundos sem alterar o núcleo do MuseTalk.
+- Arquitetura preparada para futuros elementos visuais, como microfone lateral.
+- Possibilidade futura de empacotar a interface como aplicativo Windows.

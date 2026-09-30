@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd /opt/MuseTalk
 
-mkdir -p models/musetalk models/musetalkV15 models/syncnet models/dwpose models/face-parse-bisent models/sd-vae models/whisper
+mkdir -p models/musetalkV15 models/syncnet models/dwpose models/face-parse-bisent models/sd-vae models/whisper
 
 python3.10 -m pip install -U "huggingface_hub[cli]==0.30.2"
 python3.10 -m pip install "gdown==4.7.3"

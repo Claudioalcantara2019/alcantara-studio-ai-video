@@ -501,6 +501,21 @@ async def generate(
             content={"error": "Não foi possível determinar a duração dos arquivos.", "code": "INVALID_DURATION"},
         )
 
+    if video_duration + 0.5 < audio_duration:
+        shutil.rmtree(workdir, ignore_errors=True)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": (
+                    f"O vídeo-base ({video_duration:.1f}s) é menor que a música "
+                    f"({audio_duration:.1f}s). O vídeo precisa cobrir toda a duração da música."
+                ),
+                "code": "VIDEO_SHORTER_THAN_AUDIO",
+                "videoDuration": round(video_duration, 3),
+                "audioDuration": round(audio_duration, 3),
+            },
+        )
+
     if video_duration > MAX_VIDEO_DURATION_SECONDS or audio_duration > MAX_VIDEO_DURATION_SECONDS:
         shutil.rmtree(workdir, ignore_errors=True)
         limit_min = MAX_VIDEO_DURATION_SECONDS / 60

@@ -16,6 +16,35 @@ export async function POST(request: Request) {
     );
   }
 
+  const baseGpuUrl = gpuUrl.replace(/\/$/, "");
+
+  try {
+    const readyResponse = await fetch(`${baseGpuUrl}/ready`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!readyResponse.ok) {
+      const readiness = await readyResponse.json().catch(() => null);
+      return NextResponse.json(
+        {
+          error: "A GPU Worker ainda não está pronta para gerar vídeos.",
+          code: "GPU_BACKEND_NOT_READY",
+          readiness
+        },
+        { status: 503 }
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Não foi possível verificar a prontidão do backend GPU.",
+        code: "GPU_BACKEND_UNREACHABLE"
+      },
+      { status: 502 }
+    );
+  }
+
   const incoming = await request.formData();
   const video = incoming.get("video");
   const audio = incoming.get("audio");

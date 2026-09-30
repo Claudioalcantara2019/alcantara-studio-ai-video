@@ -14,3 +14,8 @@ jobs:
           python-version: "3.10"
       - name: Compile GPU worker
         run: python -m py_compile gpu-worker/main.py gpu-worker/musetalk_runner.py
+      - name: Verify key worker endpoints exist
+        run: |
+          grep -q '@app.post("/generate")' gpu-worker/main.py
+          grep -q '@app.get("/ready")' gpu-worker/main.py
+          grep -q '@app.get("/gpu")' gpu-worker/main.py

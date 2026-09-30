@@ -16,6 +16,8 @@ services:
       GPU_CONCURRENCY: "1"
       MAX_VIDEO_DURATION_SECONDS: "900"
       MAX_UPLOAD_BYTES: "2147483648"
+      MUSETALK_BATCH_SIZE: "4"
+      PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
     volumes:
       - musetalk-models:/opt/MuseTalk/models
       - alcantara-jobs:/data/jobs

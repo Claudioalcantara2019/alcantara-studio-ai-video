@@ -24,7 +24,7 @@ def validate_paths(video: Path, audio: Path) -> None:
         raise RuntimeError("O áudio de entrada está vazio.")
 
 
-def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
+def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> Path:
     validate_paths(video, audio)
 
     if not MUSE_DIR.exists():
@@ -84,20 +84,34 @@ def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
         "--batch_size", os.getenv("MUSETALK_BATCH_SIZE", "4"),
     ]
 
-    completed = subprocess.run(
+    process = subprocess.Popen(
         command,
         cwd=MUSE_DIR,
         env=env,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
     )
 
-    if completed.returncode != 0:
+    while process.poll() is None:
+        if cancel_event is not None and cancel_event.is_set():
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            raise RuntimeError("Job cancelado pelo usuário.")
+        process.wait(timeout=1)
+
+    stdout, stderr = process.communicate()
+
+    if process.returncode != 0:
         raise RuntimeError(
             "MuseTalk falhou.\nSTDOUT:\n"
-            + completed.stdout[-6000:]
+            + stdout[-6000:]
             + "\nSTDERR:\n"
-            + completed.stderr[-6000:]
+            + stderr[-6000:]
         )
 
     candidates = list(result_dir.rglob("musetalk_result.mp4"))

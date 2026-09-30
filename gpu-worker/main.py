@@ -39,6 +39,9 @@ def load_jobs() -> None:
 
 
 
+# Restore persisted jobs whenever the worker starts so status/result survive restarts.
+load_jobs()
+
 def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
     import subprocess
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useMemo, useState } from "react";
+import { SCENE_OPTIONS, SceneOption } from "@/lib/job";
 
 type Format = "16:9" | "9:16";
 
@@ -8,6 +9,7 @@ export default function Home() {
   const [video, setVideo] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
   const [format, setFormat] = useState<Format>("16:9");
+  const [scene, setScene] = useState<SceneOption>(SCENE_OPTIONS[0]);
   const [status, setStatus] = useState("Pronto para receber os arquivos.");
   const [busy, setBusy] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export default function Home() {
     form.append("video", video);
     form.append("audio", audio);
     form.append("format", format);
+    form.append("scene", scene.id);
 
     try {
       const response = await fetch("/api/jobs", {
@@ -146,6 +149,27 @@ export default function Home() {
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-7">
+            <p className="mb-3 text-sm font-semibold">Cenário</p>
+            <select
+              value={scene.id}
+              onChange={(event) => {
+                const selected = SCENE_OPTIONS.find((item) => item.id === event.target.value);
+                if (selected) setScene(selected);
+              }}
+              className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none"
+            >
+              {SCENE_OPTIONS.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-white/40">
+              A troca de cenário será ativada na próxima etapa do motor de vídeo.
+            </p>
           </div>
 
           <button

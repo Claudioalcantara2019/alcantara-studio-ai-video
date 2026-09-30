@@ -109,12 +109,11 @@ export default function Home() {
       setStage(data.stage ?? "queued");
       setStatus("Job repetido e enviado para processamento.");
       await waitForJob(data.jobId);
-      await refreshHistory();
-      await refreshHistory();
     } catch (error) {
-      setBusy(false);
       setStage("failed");
       setStatus(error instanceof Error ? error.message : "Erro ao repetir o job.");
+    } finally {
+      setBusy(false);
       await refreshHistory();
     }
   }

@@ -29,11 +29,6 @@ def load_jobs() -> None:
     for job_file in DATA_DIR.glob("*/job.json"):
         try:
             job = json.loads(job_file.read_text(encoding="utf-8"))
-            if job.get("status") == "processing":
-                job["status"] = "failed"
-                job["stage"] = "failed"
-                job["progress"] = 0
-                job["message"] = "Processamento interrompido pela reinicialização do worker."
             jobs[job["jobId"]] = job
         except Exception:
             continue
@@ -70,6 +65,8 @@ def mark_interrupted_jobs() -> bool:
 @app.on_event("startup")
 async def startup() -> None:
     mark_interrupted_jobs()
+
+
 def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
     import subprocess
 

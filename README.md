@@ -52,6 +52,21 @@ alcantara-studio-ai-video/
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
 ## Fluxo local no Windows
+### Primeiro início do worker GPU
+
+O primeiro `docker compose up --build` pode demorar porque a imagem instala as dependências do MuseTalk e o script de inicialização baixa os modelos.
+
+Os modelos ficam no volume Docker `musetalk-models`. O script de download foi preparado para ser **idempotente**: arquivos já existentes não são baixados novamente.
+
+O worker também aceita:
+
+```text
+MUSETALK_BATCH_SIZE=4
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+```
+
+O batch pode ser reduzido para `2` ou `1` em uma GPU com pouca VRAM.
+
 
 O projeto agora inclui um fluxo explícito para desenvolvimento local no Windows:
 

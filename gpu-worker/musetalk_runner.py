@@ -13,7 +13,20 @@ SYNCNET = MUSE_DIR / "models" / "syncnet"
 SD_VAE = MUSE_DIR / "models" / "sd-vae"
 
 
+def validate_paths(video: Path, audio: Path) -> None:
+    if not video.is_file():
+        raise RuntimeError(f"Vídeo de entrada não encontrado: {video}")
+    if not audio.is_file():
+        raise RuntimeError(f"Áudio de entrada não encontrado: {audio}")
+    if video.stat().st_size == 0:
+        raise RuntimeError("O vídeo de entrada está vazio.")
+    if audio.stat().st_size == 0:
+        raise RuntimeError("O áudio de entrada está vazio.")
+
+
 def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
+    validate_paths(video, audio)
+
     if not MUSE_DIR.exists():
         raise RuntimeError(f"MuseTalk não encontrado em {MUSE_DIR}")
 

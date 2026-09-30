@@ -1,6 +1,9 @@
 $ErrorActionPreference = "Continue"
 
 Write-Host ""
+if (-not $dockerGpuOk) {
+    Write-Host "[ATENÇÃO] O worker não deve ser considerado pronto enquanto o teste GPU do Docker falhar." -ForegroundColor Yellow
+}
 Write-Host "=== Alcantara Studio AI Video - diagnóstico GPU ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -25,8 +28,9 @@ Write-Host ""
 Write-Host "Testando acesso do Docker à GPU..."
 
 & docker run --rm --gpus all nvidia/cuda:11.8.0-runtime-ubuntu22.04 nvidia-smi
+$dockerGpuOk = ($LASTEXITCODE -eq 0)
 
-if ($LASTEXITCODE -eq 0) {
+if ($dockerGpuOk) {
     Write-Host ""
     Write-Host "[OK] Docker conseguiu acessar uma GPU NVIDIA." -ForegroundColor Green
 } else {

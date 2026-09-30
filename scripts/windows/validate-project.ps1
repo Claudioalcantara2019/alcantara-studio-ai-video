@@ -12,6 +12,15 @@ python -m py_compile gpu-worker/main.py gpu-worker/musetalk_runner.py
 if ($LASTEXITCODE -ne 0) { throw "Falha na compilação Python." }
 Write-Host "[OK] Python"
 
+Write-Host "[5/6] Contratos do GPU Worker..."
+$workerText = Get-Content "gpu-worker/main.py" -Raw
+$runnerText = Get-Content "gpu-worker/musetalk_runner.py" -Raw
+if ($workerText -notmatch '@app.delete\("/jobs/\{job_id\}"\)') { throw "Endpoint de cancelamento ausente." }
+if ($workerText -notmatch '"cancelled"') { throw "Estado cancelled ausente." }
+if ($runnerText -notmatch "cancel_event") { throw "Controle de cancelamento MuseTalk ausente." }
+Write-Host "[OK] Contratos GPU Worker"
+
+
 Write-Host "[2/4] Docker Compose..."
 docker compose -f docker-compose.gpu.yml config | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "docker-compose.gpu.yml inválido." }
@@ -46,7 +55,7 @@ foreach ($file in $required) {
 
 Write-Host "[OK] Arquivos essenciais"
 
-Write-Host "[5/5] Sintaxe PowerShell..."
+Write-Host "[6/6] Sintaxe PowerShell..."
 $scripts = @(
     "scripts/windows/check-gpu.ps1",
     "scripts/windows/start-gpu-worker.ps1",

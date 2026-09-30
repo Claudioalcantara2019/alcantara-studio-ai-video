@@ -51,11 +51,11 @@ export default function Home() {
         throw new Error(data.error ?? "O processamento falhou.");
       }
 
-      setStatus(
-        data.status === "processing"
-          ? "Processando com MuseTalk... isso pode levar alguns minutos."
-          : "Job na fila de processamento..."
-      );
+      if (data.status === "processing") {
+        setStatus(data.message ?? "Processando... isso pode levar alguns minutos.");
+      } else {
+        setStatus(data.message ?? "Job na fila de processamento...");
+      }
     }
   }
 

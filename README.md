@@ -51,6 +51,29 @@ alcantara-studio-ai-video/
 
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
+## Fluxo local no Windows
+
+O projeto agora inclui um fluxo explícito para desenvolvimento local no Windows:
+
+```text
+C:\Projetos\alcantara-studio-ai-video\
+├── app\
+├── gpu-worker\
+├── lib\
+├── scripts\windows\
+├── docker-compose.gpu.yml
+└── README.md
+```
+
+Scripts disponíveis:
+
+- `scripts/windows/check-gpu.ps1` — diagnóstico da GPU e do acesso do Docker.
+- `scripts/windows/start-gpu-worker.ps1` — constrói/inicia o worker GPU.
+- `scripts/windows/start-web.ps1` — cria `.env.local` para o worker local e inicia o Next.js.
+- `scripts/windows/README.md` — passo a passo do fluxo local.
+
+Isso recoloca o projeto no fluxo de trabalho familiar do VS Code. O GitHub continua sendo o repositório central; a pasta local é a cópia usada para desenvolvimento e testes.
+
 ## Transferência de arquivos no modo web
 
 Na versão web atual, a interface envia os arquivos para a API Next.js, que os encaminha ao GPU Worker.

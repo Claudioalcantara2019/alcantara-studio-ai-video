@@ -1,6 +1,3 @@
-import threading
-import time
-
 from fastapi.testclient import TestClient
 
 import main
@@ -48,3 +45,19 @@ def test_cancel_unknown_job():
 
     response = client.delete("/jobs/does-not-exist")
     assert response.status_code == 404
+
+
+def test_cancelled_job_cannot_be_cancelled_twice():
+    client = TestClient(main.app)
+
+    job_id = "test-cancelled"
+    main.jobs[job_id] = {
+        "jobId": job_id,
+        "status": "cancelled",
+        "stage": "cancelled",
+    }
+
+    response = client.delete(f"/jobs/{job_id}")
+    assert response.status_code == 409
+
+    main.jobs.pop(job_id, None)

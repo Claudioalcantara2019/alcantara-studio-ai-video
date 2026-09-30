@@ -192,6 +192,13 @@ async def process_job(job_id: str) -> None:
                     "O vídeo precisa cobrir toda a duração da música."
                 )
 
+            if video_duration > audio_duration + 0.5:
+                job["message"] = (
+                    f"Vídeo-base ({video_duration:.1f}s) maior que a música "
+                    f"({audio_duration:.1f}s); o resultado será limitado à duração da música."
+                )
+            save_job(job)
+
             normalized_video = workdir / "musetalk_input_25fps.mp4"
             await asyncio.to_thread(
                 normalize_video_for_musetalk,

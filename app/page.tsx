@@ -285,7 +285,7 @@ export default function Home() {
               ))}
             </select>
             <p className="mt-2 text-xs text-white/40">
-              O cenário original é o único motor ativo nesta fase. Os demais estão reservados para a próxima etapa.
+              Os quatro modos já estão ativos. Nesta fase, os três últimos aplicam tratamento visual sem alterar roupa ou substituir o fundo por IA.
             </p>
           </div>
 

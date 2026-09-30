@@ -12,7 +12,7 @@ from musetalk_runner import run_musetalk
 DATA_DIR = Path("/data/jobs")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Alcantara Studio GPU Worker", version="0.5.0")
+app = FastAPI(title="Alcantara Studio GPU Worker", version="0.5.1")
 jobs: dict[str, dict] = {}
 GPU_CONCURRENCY = max(1, int(__import__("os").getenv("GPU_CONCURRENCY", "1")))
 MAX_VIDEO_DURATION_SECONDS = float(__import__("os").getenv("MAX_VIDEO_DURATION_SECONDS", "900"))
@@ -204,7 +204,7 @@ def compose_scene(source: Path, destination: Path, scene: str) -> None:
     if not destination.is_file() or destination.stat().st_size == 0:
         raise RuntimeError("A composição do cenário não criou um vídeo válido.")
 
-def finalize_video(source: Path, destination: Path, video_format: str) -> None:
+def finalize_video(source: Path, audio: Path, destination: Path, video_format: str) -> None:
     width, height = output_size(video_format)
     vf = (
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
@@ -214,8 +214,9 @@ def finalize_video(source: Path, destination: Path, video_format: str) -> None:
     command = [
         "ffmpeg", "-y",
         "-i", str(source),
+        "-i", str(audio),
         "-map", "0:v:0",
-        "-map", "0:a:0?",
+        "-map", "1:a:0",
         "-vf", vf,
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k",
@@ -340,6 +341,7 @@ async def process_job(job_id: str) -> None:
             await asyncio.to_thread(
                 finalize_video,
                 composed_path,
+                workdir / job["audio_filename"],
                 final_path,
                 job["format"],
             )

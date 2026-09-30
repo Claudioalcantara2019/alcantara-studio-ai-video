@@ -181,6 +181,19 @@ O GitHub Actions agora valida os dois lados do projeto:
 
 Assim, alterações futuras na interface podem ser detectadas pelo CI antes de serem consideradas concluídas.
 
+## Processamento sem GPU NVIDIA local
+
+O projeto também possui um caminho de processamento via Kaggle, para que o computador local não precise ter uma GPU NVIDIA.
+
+Arquivos:
+
+- `kaggle/Alcantara_Studio_MuseTalk.ipynb` — notebook preparado para MuseTalk 1.5 + GPU do Kaggle.
+- `kaggle/README.md` — instruções do fluxo.
+
+Esse caminho usa a GPU gratuita disponibilizada pelo Kaggle dentro da quota e disponibilidade da conta. A quota é limitada e pode variar; portanto, não é tratada como GPU ilimitada. O processamento real no Kaggle ainda precisa ser executado para validação.
+
+O fluxo local com Docker/NVIDIA continua disponível para uma máquina que tenha GPU compatível, mas **não é requisito para o notebook do Cláudio usar o projeto**.
+
 ## Estado atual
 
 A interface inicial e a API de jobs estão implementadas. O backend GPU com MuseTalk 1.5 está estruturado em Docker/CUDA, com download automatizado dos modelos, volume persistente, healthcheck e reinício automático.

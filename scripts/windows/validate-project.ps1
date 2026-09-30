@@ -22,6 +22,8 @@ if ($workerText -notmatch '@app.get\("/jobs"\)') { throw "Endpoint de histórico
 if ($workerText -notmatch '@app.post\("/jobs/\{job_id\}/retry"\)') { throw "Endpoint de repetição ausente." }
 if ($workerText -notmatch "stageTiming") { throw "Métricas de etapa ausentes." }
 if ($workerText -notmatch "peakAllocatedMb") { throw "Métricas de VRAM ausentes." }
+if ($workerText -notmatch '"performance"') { throw "Métricas de performance ausentes." }
+if ($workerText -notmatch '"media"') { throw "Metadados de mídia ausentes." }
 Write-Host "[OK] Contratos GPU Worker"
 
 

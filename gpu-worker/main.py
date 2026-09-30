@@ -382,6 +382,7 @@ async def process_job(job_id: str) -> None:
             job["message"] = "Vídeo pronto."
             job["resultUrl"] = f"/jobs/{job_id}/result"
             save_job(job)
+            cancel_events.pop(job_id, None)
 
         except Exception as exc:
             if cancel_event.is_set() or str(exc) == "Job cancelado pelo usuário.":
@@ -401,6 +402,7 @@ async def process_job(job_id: str) -> None:
             job["error"] = str(exc)
             job["failedAt"] = utc_now()
             save_job(job)
+            cancel_events.pop(job_id, None)
 
 
 def runtime_readiness() -> dict:

@@ -12,21 +12,25 @@ python -m py_compile gpu-worker/main.py gpu-worker/musetalk_runner.py
 if ($LASTEXITCODE -ne 0) { throw "Falha na compilação Python." }
 Write-Host "[OK] Python"
 
-Write-Host "[5/6] Contratos do GPU Worker..."
+Write-Host "[2/6] Contratos do GPU Worker..."
 $workerText = Get-Content "gpu-worker/main.py" -Raw
 $runnerText = Get-Content "gpu-worker/musetalk_runner.py" -Raw
 if ($workerText -notmatch '@app.delete\("/jobs/\{job_id\}"\)') { throw "Endpoint de cancelamento ausente." }
 if ($workerText -notmatch '"cancelled"') { throw "Estado cancelled ausente." }
 if ($runnerText -notmatch "cancel_event") { throw "Controle de cancelamento MuseTalk ausente." }
+if ($workerText -notmatch '@app.get\("/jobs"\)') { throw "Endpoint de histórico ausente." }
+if ($workerText -notmatch '@app.post\("/jobs/\{job_id\}/retry"\)') { throw "Endpoint de repetição ausente." }
+if ($workerText -notmatch "stageTiming") { throw "Métricas de etapa ausentes." }
+if ($workerText -notmatch "peakAllocatedMb") { throw "Métricas de VRAM ausentes." }
 Write-Host "[OK] Contratos GPU Worker"
 
 
-Write-Host "[2/4] Docker Compose..."
+Write-Host "[3/6] Docker Compose..."
 docker compose -f docker-compose.gpu.yml config | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "docker-compose.gpu.yml inválido." }
 Write-Host "[OK] Docker Compose"
 
-Write-Host "[3/4] Node..."
+Write-Host "[4/6] Node..."
 if (-not (Test-Path "node_modules")) {
     Write-Host "node_modules não existe; instalando dependências..."
     npm install
@@ -35,7 +39,7 @@ npm run build
 if ($LASTEXITCODE -ne 0) { throw "Falha no build Next.js." }
 Write-Host "[OK] Next.js"
 
-Write-Host "[4/5] Arquivos essenciais..."
+Write-Host "[5/6] Arquivos essenciais..."
 $required = @(
     "app/page.tsx",
     "app/api/health/route.ts",

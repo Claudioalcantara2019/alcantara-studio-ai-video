@@ -107,3 +107,35 @@ O Docker Compose mantém:
 - jobs em `alcantara-jobs`.
 
 O objetivo desta estrutura é permitir que o projeto seja desenvolvido normalmente no VS Code, enquanto o processamento pesado fica isolado no container GPU.
+
+
+## Controle rápido do sistema
+
+Depois que a máquina NVIDIA estiver configurada, o fluxo diário pode ser reduzido a:
+
+```powershell
+.\scripts\windows\start-all.ps1
+```
+
+Esse comando:
+
+1. verifica NVIDIA + Docker;
+2. inicia o GPU Worker;
+3. espera o worker ficar pronto;
+4. prepara `.env.local`;
+5. abre `http://localhost:3000`;
+6. inicia a interface Next.js.
+
+Para consultar o estado sem iniciar nada:
+
+```powershell
+.\scripts\windows\status.ps1
+```
+
+Para parar o worker:
+
+```powershell
+.\scripts\windows\stop-all.ps1
+```
+
+O Next.js iniciado pelo `start-all.ps1` roda em primeiro plano; para encerrá-lo, use `Ctrl+C` na janela correspondente.

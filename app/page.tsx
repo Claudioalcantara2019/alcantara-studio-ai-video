@@ -40,19 +40,29 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/health", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => {
+
+    async function refreshHealth() {
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+        const data = await response.json();
         if (active) {
           setHealth(data);
           setBackendReady(Boolean(data.gpuBackendReady));
         }
-      })
-      .catch(() => {
-        if (active) setBackendReady(false);
-      });
+      } catch {
+        if (active) {
+          setBackendReady(false);
+          setHealth(null);
+        }
+      }
+    }
+
+    refreshHealth();
+    const timer = window.setInterval(refreshHealth, 10000);
+
     return () => {
       active = false;
+      window.clearInterval(timer);
     };
   }, []);
 

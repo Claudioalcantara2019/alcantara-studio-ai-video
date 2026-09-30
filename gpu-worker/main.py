@@ -96,6 +96,22 @@ def probe_media(path: Path) -> dict:
         raise RuntimeError(f"Resposta inválida do ffprobe para {path.name}")
 
 
+
+def cleanup_old_jobs(max_age_hours: int = 72) -> None:
+    import time
+
+    now = time.time()
+    max_age = max_age_hours * 3600
+    for job_dir in DATA_DIR.iterdir():
+        if not job_dir.is_dir():
+            continue
+        try:
+            if now - job_dir.stat().st_mtime > max_age:
+                shutil.rmtree(job_dir, ignore_errors=True)
+                jobs.pop(job_dir.name, None)
+        except OSError:
+            continue
+
 def output_size(video_format: str) -> tuple[int, int]:
     return (1920, 1080) if video_format == "16:9" else (1080, 1920)
 
@@ -223,6 +239,7 @@ async def process_job(job_id: str) -> None:
 
 @app.get("/health")
 def health() -> dict:
+    cleanup_old_jobs()
     queued = sum(1 for job in jobs.values() if job.get("status") == "queued")
     processing = sum(1 for job in jobs.values() if job.get("status") == "processing")
     return {

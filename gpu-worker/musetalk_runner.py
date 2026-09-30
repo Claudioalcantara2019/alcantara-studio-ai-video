@@ -17,7 +17,19 @@ def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
     if not MUSE_DIR.exists():
         raise RuntimeError(f"MuseTalk não encontrado em {MUSE_DIR}")
 
-    required = [MODEL, CONFIG, WHISPER, DWPose, FACE_PARSE, SYNCNET, SD_VAE]
+    required = [
+        MODEL,
+        CONFIG,
+        WHISPER / "config.json",
+        WHISPER / "pytorch_model.bin",
+        WHISPER / "preprocessor_config.json",
+        DWPose / "dw-ll_ucoco_384.pth",
+        FACE_PARSE / "79999_iter.pth",
+        FACE_PARSE / "resnet18-5c106cde.pth",
+        SYNCNET / "latentsync_syncnet.pt",
+        SD_VAE / "config.json",
+        SD_VAE / "diffusion_pytorch_model.bin",
+    ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise RuntimeError("Modelos MuseTalk ausentes: " + ", ".join(missing))

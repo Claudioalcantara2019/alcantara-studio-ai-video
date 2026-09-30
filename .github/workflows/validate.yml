@@ -22,6 +22,8 @@ jobs:
           grep -q 'VIDEO_SHORTER_THAN_AUDIO' gpu-worker/main.py
           grep -q 'MAX_JOB_AGE_HOURS' gpu-worker/main.py
           grep -q '"performance"' gpu-worker/main.py
+          grep -q '"-map", "1:a:0"' gpu-worker/main.py
+          grep -q 'workdir / job\["audio_filename"\]' gpu-worker/main.py
 
   powershell:
     runs-on: windows-latest

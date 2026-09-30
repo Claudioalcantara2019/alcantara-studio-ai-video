@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 MUSE_DIR = Path(os.getenv("MUSETALK_DIR", "/opt/MuseTalk"))
-PYTHON = os.getenv("MUSETALK_PYTHON", "python3")
+PYTHON = os.getenv("MUSETALK_PYTHON", "python3.10")
 MODEL = MUSE_DIR / "models" / "musetalkV15" / "unet.pth"
 CONFIG = MUSE_DIR / "models" / "musetalkV15" / "musetalk.json"
 WHISPER = MUSE_DIR / "models" / "whisper"
@@ -48,7 +48,7 @@ def run_musetalk(video: Path, audio: Path, workdir: Path) -> Path:
         "--result_dir", str(result_dir),
         "--version", "v15",
         "--use_float16",
-        "--batch_size", "4",
+        "--batch_size", os.getenv("MUSETALK_BATCH_SIZE", "4"),
     ]
 
     completed = subprocess.run(

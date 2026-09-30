@@ -52,6 +52,16 @@ alcantara-studio-ai-video/
 No uso final, a intenção é empacotar a interface em um aplicativo Windows simples, mantendo o processamento pesado separado da interface.
 
 ## Fluxo local no Windows
+### Validação antes de usar
+
+No Windows, existe um comando único para conferir a estrutura do projeto:
+
+```powershell
+.\scripts\windows\validate-project.ps1
+```
+
+Ele verifica a compilação Python, a configuração do Docker Compose, o build do Next.js e a presença dos arquivos essenciais. Ele **não executa o MuseTalk**, porque essa etapa depende de uma GPU NVIDIA.
+
 ### Primeiro início do worker GPU
 
 O primeiro `docker compose up --build` pode demorar porque a imagem instala as dependências do MuseTalk e o script de inicialização baixa os modelos.

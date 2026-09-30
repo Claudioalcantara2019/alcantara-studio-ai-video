@@ -54,6 +54,27 @@ def normalize_video_for_musetalk(source: Path, destination: Path) -> None:
         raise RuntimeError(result.stderr[-5000:])
 
 
+def media_duration(path: Path) -> float:
+    import subprocess
+
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Não foi possível ler a duração do arquivo.")
+    try:
+        return float(result.stdout.strip())
+    except ValueError:
+        raise RuntimeError("Duração de mídia inválida.")
+
+
 def output_size(video_format: str) -> tuple[int, int]:
     return (1920, 1080) if video_format == "16:9" else (1080, 1920)
 
@@ -99,7 +120,15 @@ async def process_job(job_id: str) -> None:
         workdir = DATA_DIR / job_id
 
         try:
-            normalized_video = workdir / "musetalk_input_25fps.mp4"
+            video_duration = media_duration(workdir / "input.mp4")
+        audio_duration = media_duration(workdir / job["audio_filename"])
+        if video_duration + 0.5 < audio_duration:
+            raise RuntimeError(
+                f"O vídeo-base ({video_duration:.1f}s) é menor que a música ({audio_duration:.1f}s). "
+                "O vídeo precisa cobrir toda a duração da música."
+            )
+
+        normalized_video = workdir / "musetalk_input_25fps.mp4"
             await asyncio.to_thread(
                 normalize_video_for_musetalk,
                 workdir / "input.mp4",

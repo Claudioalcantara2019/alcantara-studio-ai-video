@@ -105,6 +105,13 @@ async def generate(
     format: str = Form("16:9"),
     scene: str = Form("original"),
 ):
+    allowed_scenes = {"original", "studio", "stage", "cinematic"}
+    if scene not in allowed_scenes:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Cenário inválido."},
+        )
+
     if format not in {"16:9", "9:16"}:
         return JSONResponse(
             status_code=400,

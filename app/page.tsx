@@ -109,9 +109,9 @@ export default function Home() {
       return;
     }
 
-    const maxBytes = 500 * 1024 * 1024;
+    const maxBytes = 2 * 1024 * 1024 * 1024;
     if (video.size > maxBytes || audio.size > maxBytes) {
-      setStatus("Cada arquivo precisa ter no máximo 500 MB.");
+      setStatus("Cada arquivo precisa ter no máximo 2 GB.");
       return;
     }
 

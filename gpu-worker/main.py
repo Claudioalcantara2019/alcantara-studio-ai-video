@@ -82,7 +82,7 @@ async def process_job(job_id: str) -> None:
         musetalk_output = await asyncio.to_thread(
             run_musetalk,
             normalized_video,
-            workdir / "audio.mp3",
+            workdir / f"audio{audio_suffix}",
             workdir,
         )
 

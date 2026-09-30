@@ -15,7 +15,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-Write-Host "Worker iniciado. Verificando status..." -ForegroundColor Green
+Write-Host "Worker iniciado. Os modelos podem estar sendo preparados na primeira execução." -ForegroundColor Green
+Write-Host "Aguarde até o health mostrar ready=true." -ForegroundColor Yellow
 docker compose -f docker-compose.gpu.yml ps
 
 Write-Host ""

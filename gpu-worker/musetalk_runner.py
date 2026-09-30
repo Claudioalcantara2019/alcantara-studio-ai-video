@@ -93,18 +93,19 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
         text=True,
     )
 
-    while process.poll() is None:
-        if cancel_event is not None and cancel_event.is_set():
-            process.terminate()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-            raise RuntimeError("Job cancelado pelo usuário.")
-        process.wait(timeout=1)
-
-    stdout, stderr = process.communicate()
+    while True:
+        try:
+            stdout, stderr = process.communicate(timeout=1)
+            break
+        except subprocess.TimeoutExpired:
+            if cancel_event is not None and cancel_event.is_set():
+                process.terminate()
+                try:
+                    stdout, stderr = process.communicate(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                raise RuntimeError("Job cancelado pelo usuário.")
 
     if process.returncode != 0:
         raise RuntimeError(

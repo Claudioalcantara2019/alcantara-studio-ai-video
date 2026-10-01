@@ -1,9 +1,10 @@
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 MUSE_DIR = Path(os.getenv("MUSETALK_DIR", "/opt/MuseTalk"))
-PYTHON = os.getenv("MUSETALK_PYTHON", "python3.10")
+PYTHON = os.getenv("MUSETALK_PYTHON", sys.executable)
 MODEL = MUSE_DIR / "models" / "musetalkV15" / "unet.pth"
 CONFIG = MUSE_DIR / "models" / "musetalkV15" / "musetalk.json"
 WHISPER = MUSE_DIR / "models" / "whisper"
@@ -11,6 +12,13 @@ DWPose = MUSE_DIR / "models" / "dwpose"
 FACE_PARSE = MUSE_DIR / "models" / "face-parse-bisent"
 SYNCNET = MUSE_DIR / "models" / "syncnet"
 SD_VAE = MUSE_DIR / "models" / "sd-vae"
+WORKER_DIR = Path(__file__).resolve().parent
+OPENVINO_SCRIPT = WORKER_DIR / "openvino_musetalk.py"
+OPENVINO_MODELS = (
+    MUSE_DIR / "models" / "openvino_unet_fp16.xml",
+    MUSE_DIR / "models" / "openvino_vae_encoder.xml",
+    MUSE_DIR / "models" / "openvino_vae_decoder.xml",
+)
 
 
 def validate_paths(video: Path, audio: Path) -> None:
@@ -30,12 +38,10 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
     if not MUSE_DIR.exists():
         raise RuntimeError(f"MuseTalk não encontrado em {MUSE_DIR}")
 
-    if not workdir.exists():
-        workdir.mkdir(parents=True, exist_ok=True)
+    workdir.mkdir(parents=True, exist_ok=True)
 
     required = [
-        MODEL,
-        CONFIG,
+        MODEL, CONFIG,
         WHISPER / "config.json",
         WHISPER / "pytorch_model.bin",
         WHISPER / "preprocessor_config.json",
@@ -50,6 +56,8 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
     if missing:
         raise RuntimeError("Modelos MuseTalk ausentes: " + ", ".join(missing))
 
+    backend = os.getenv("MUSETALK_BACKEND", "cuda").lower().strip()
+
     config_file = workdir / "inference.yaml"
     config_file.write_text(
         f'task_0:\n'
@@ -63,34 +71,47 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
     result_dir.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(MUSE_DIR)
+    env["PYTHONPATH"] = str(MUSE_DIR) + os.pathsep + str(WORKER_DIR)
     env["MPLBACKEND"] = "Agg"
     env["TOKENIZERS_PARALLELISM"] = "false"
-    env["PYTORCH_CUDA_ALLOC_CONF"] = os.getenv(
-        "PYTORCH_CUDA_ALLOC_CONF",
-        "expandable_segments:True",
-    )
+    env["MUSETALK_DIR"] = str(MUSE_DIR)
 
-    command = [
-        PYTHON,
-        "scripts/inference.py",
-        "--inference_config", str(config_file),
-        "--unet_config", str(CONFIG),
-        "--unet_model_path", str(MODEL),
-        "--whisper_dir", str(WHISPER),
-        "--result_dir", str(result_dir),
-        "--version", "v15",
-        "--use_float16",
-        "--batch_size", os.getenv("MUSETALK_BATCH_SIZE", "4"),
-    ]
+    if backend == "openvino":
+        missing_ov = [str(p) for p in OPENVINO_MODELS if not p.exists()]
+        if missing_ov:
+            raise RuntimeError("Modelos OpenVINO ausentes: " + ", ".join(missing_ov))
+        if not OPENVINO_SCRIPT.exists():
+            raise RuntimeError(f"Pipeline OpenVINO não encontrado: {OPENVINO_SCRIPT}")
+
+        env["OPENVINO_DEVICE"] = os.getenv("OPENVINO_DEVICE", "GPU")
+        command = [
+            PYTHON, str(OPENVINO_SCRIPT),
+            "--inference_config", str(config_file),
+            "--whisper_dir", str(WHISPER),
+            "--result_dir", str(result_dir),
+            "--parsing_mode", os.getenv("MUSETALK_PARSING_MODE", "jaw"),
+        ]
+        if os.getenv("MUSETALK_USE_SAVED_COORD", "0") == "1":
+            command.append("--use_saved_coord")
+    else:
+        env["PYTORCH_CUDA_ALLOC_CONF"] = os.getenv(
+            "PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True"
+        )
+        command = [
+            PYTHON, "scripts/inference.py",
+            "--inference_config", str(config_file),
+            "--unet_config", str(CONFIG),
+            "--unet_model_path", str(MODEL),
+            "--whisper_dir", str(WHISPER),
+            "--result_dir", str(result_dir),
+            "--version", "v15",
+            "--use_float16",
+            "--batch_size", os.getenv("MUSETALK_BATCH_SIZE", "4"),
+        ]
 
     process = subprocess.Popen(
-        command,
-        cwd=MUSE_DIR,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        command, cwd=MUSE_DIR, env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
 
     while True:
@@ -109,17 +130,15 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
 
     if process.returncode != 0:
         raise RuntimeError(
-            "MuseTalk falhou.\nSTDOUT:\n"
-            + stdout[-6000:]
-            + "\nSTDERR:\n"
-            + stderr[-6000:]
+            "MuseTalk falhou.\nSTDOUT:\n" + stdout[-6000:]
+            + "\nSTDERR:\n" + stderr[-6000:]
         )
 
     candidates = list(result_dir.rglob("musetalk_result.mp4"))
+    if not candidates and backend == "openvino":
+        candidates = list(result_dir.rglob("*_openvino.mp4"))
     if not candidates:
         candidates = list(result_dir.rglob("*.mp4"))
-
     if not candidates:
         raise RuntimeError("MuseTalk terminou sem produzir MP4.")
-
     return candidates[-1]

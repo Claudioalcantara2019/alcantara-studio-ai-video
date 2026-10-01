@@ -111,7 +111,7 @@ def run_musetalk(video: Path, audio: Path, workdir: Path, cancel_event=None) -> 
 
     process = subprocess.Popen(
         command, cwd=MUSE_DIR, env=env,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
     )
 
     while True:

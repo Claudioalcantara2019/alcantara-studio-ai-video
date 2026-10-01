@@ -80,7 +80,15 @@ class OpenVINOBackend:
         if latents.ndim != 4 or latents.shape[1] != 4:
             raise ValueError(f"Expected [B,4,H,W] latents, got {latents.shape}")
         unscaled = latents / SCALING_FACTOR
-        return self.vae_decoder({self.vae_decoder.input(0): unscaled})[self.vae_decoder.output(0)]
+        decoded = self.vae_decoder({self.vae_decoder.input(0): unscaled})[self.vae_decoder.output(0)]
+        # MuseTalk blending expects uint8 BGR images in HWC layout.
+        # The OpenVINO export returns float RGB tensors in NCHW layout.
+        if decoded.ndim != 4 or decoded.shape[1] != 3:
+            raise RuntimeError(f"Unexpected VAE decoder output shape: {decoded.shape}")
+        decoded = np.transpose(decoded, (0, 2, 3, 1))
+        decoded = np.clip((decoded + 1.0) * 127.5, 0, 255).astype(np.uint8)
+        decoded = decoded[:, :, :, ::-1]
+        return decoded
 
     def unet_inference(self, latent_model_input, timestep, encoder_hidden_states):
         feed = {}

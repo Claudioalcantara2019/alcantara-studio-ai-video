@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 # Make the official MuseTalk checkout importable.
 MUSE_DIR = Path(os.getenv("MUSETALK_DIR", r"C:\Users\minim\MuseTalk"))
+os.chdir(MUSE_DIR)
 if str(MUSE_DIR) not in sys.path:
     sys.path.insert(0, str(MUSE_DIR))
 

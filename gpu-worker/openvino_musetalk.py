@@ -168,7 +168,7 @@ def run(args):
 
             # Positional encoding stays on CPU, then crosses to NumPy.
             with torch.no_grad():
-                wb = torch.stack(wbatch).to(device=device, dtype=dtype)
+                wb = wbatch.to(device=device, dtype=dtype)
                 audio_features = pe(wb).detach().cpu().numpy().astype(np.float32)
 
             if audio_features.shape[0] < batch_size:

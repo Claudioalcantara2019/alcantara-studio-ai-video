@@ -84,11 +84,18 @@ class OpenVINOBackend:
 
     def unet_inference(self, latent_model_input, timestep, encoder_hidden_states):
         feed = {}
-        for name, value in (("sample", latent_model_input), ("timestep", timestep), ("encoder_hidden_states", encoder_hidden_states)):
-            port = self._unet_inputs.get(name)
-            if port is None:
-                raise RuntimeError(f"UNet input {name!r} not found. Available inputs: {list(self._unet_inputs)}")
-            feed[port] = np.asarray(value)
+        # The exported OpenVINO UNet names its timestep input "33".
+        # Prefer the semantic name when available, otherwise use the second
+        # input by position, which is how the current export was produced.
+        timestep_port = self._unet_inputs.get("timestep")
+        if timestep_port is None:
+            timestep_port = self.unet.inputs[1]
+
+        feed = {
+            self._unet_inputs["sample"]: np.asarray(latent_model_input),
+            timestep_port: np.asarray(timestep),
+            self._unet_inputs["encoder_hidden_states"]: np.asarray(encoder_hidden_states),
+        }
         return self.unet(feed)[self.unet.output(0)]
 
 if __name__ == "__main__":

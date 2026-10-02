@@ -4,9 +4,7 @@ Re-export MuseTalk v1.5 UNet for OpenVINO.
 This script intentionally builds the UNet from the official MuseTalk v1.5
 config + checkpoint instead of converting a previously exported OpenVINO file.
 
-Output:
-  C:\Users\minim\MuseTalk\models\openvino_unet_v2_fp16.xml
-  C:\Users\minim\MuseTalk\models\openvino_unet_v2_fp16.bin
+Output files are written under the local MuseTalk models directory.
 """
 
 from pathlib import Path

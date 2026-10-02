@@ -15,7 +15,7 @@ SD_VAE = MUSE_DIR / "models" / "sd-vae"
 WORKER_DIR = Path(__file__).resolve().parent
 OPENVINO_SCRIPT = WORKER_DIR / "openvino_musetalk.py"
 OPENVINO_MODELS = (
-    MUSE_DIR / "models" / "openvino_unet_fp16.xml",
+    MUSE_DIR / "models" / "openvino_unet_v2_fp16.xml",
     MUSE_DIR / "models" / "openvino_vae_encoder.xml",
     MUSE_DIR / "models" / "openvino_vae_decoder.xml",
 )

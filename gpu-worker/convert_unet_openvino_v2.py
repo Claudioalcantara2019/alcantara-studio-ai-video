@@ -8,17 +8,15 @@ Output files are written under the local MuseTalk models directory.
 """
 
 from pathlib import Path
+import gc
 import json
 import shutil
-import sys
 
-import numpy as np
 import torch
 import openvino as ov
 from diffusers import UNet2DConditionModel
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 MUSE_DIR = Path(r"C:\Users\minim\MuseTalk")
 CONFIG_PATH = MUSE_DIR / "models" / "musetalkV15" / "musetalk.json"
 WEIGHTS_PATH = MUSE_DIR / "models" / "musetalkV15" / "unet.pth"
@@ -76,6 +74,11 @@ def main():
     if unexpected:
         raise RuntimeError(f"Unexpected checkpoint keys: {unexpected[:10]}")
 
+    # The checkpoint is several GB. Release the second copy before conversion
+    # so the 8 GB Windows machine does not keep both checkpoint + model in RAM.
+    del state
+    gc.collect()
+
     model.eval()
     wrapper = MuseTalkUNetWrapper(model).eval()
 
@@ -85,10 +88,11 @@ def main():
     encoder_hidden_states = torch.randn(8, 50, 384, dtype=torch.float32)
 
     print("Converting the exact PyTorch graph to OpenVINO...")
-    ov_model = ov.convert_model(
-        wrapper,
-        example_input=(sample, timestep, encoder_hidden_states),
-    )
+    with torch.no_grad():
+        ov_model = ov.convert_model(
+            wrapper,
+            example_input=(sample, timestep, encoder_hidden_states),
+        )
 
     print("OpenVINO inputs:")
     for inp in ov_model.inputs:

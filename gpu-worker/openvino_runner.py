@@ -7,7 +7,8 @@ import openvino as ov
 
 MUSE_DIR = Path(os.getenv("MUSETALK_DIR", r"C:\Users\minim\MuseTalk"))
 MODELS_DIR = MUSE_DIR / "models"
-UNET_XML = MODELS_DIR / "openvino_unet_fp16.xml"
+UNET_XML_V2 = MODELS_DIR / "openvino_unet_v2_fp16.xml"
+UNET_XML_LEGACY = MODELS_DIR / "openvino_unet_fp16.xml"
 VAE_ENCODER_XML = MODELS_DIR / "openvino_vae_encoder.xml"
 VAE_DECODER_XML = MODELS_DIR / "openvino_vae_decoder.xml"
 VAE_WEIGHTS = MODELS_DIR / "sd-vae" / "diffusion_pytorch_model.bin"
@@ -23,10 +24,12 @@ class OpenVINOBackend:
                 f"OpenVINO device {self.device!r} is unavailable. "
                 f"Available devices: {self.core.available_devices}"
             )
-        missing = [str(p) for p in (UNET_XML, VAE_ENCODER_XML, VAE_DECODER_XML) if not p.is_file()]
+        unet_path = UNET_XML_V2 if UNET_XML_V2.is_file() else UNET_XML_LEGACY
+        missing = [str(p) for p in (unet_path, VAE_ENCODER_XML, VAE_DECODER_XML) if not p.is_file()]
         if missing:
             raise RuntimeError("OpenVINO model files are missing:\n" + "\n".join(missing))
-        self.unet = self.core.compile_model(UNET_XML, self.device)
+        print(f"UNet OpenVINO: {unet_path.name}")
+        self.unet = self.core.compile_model(unet_path, self.device)
         self.vae_encoder = self.core.compile_model(VAE_ENCODER_XML, self.device)
         self.vae_decoder = self.core.compile_model(VAE_DECODER_XML, self.device)
         self._unet_inputs = {self._input_name(p): p for p in self.unet.inputs}

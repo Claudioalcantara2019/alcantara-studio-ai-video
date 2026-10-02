@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import torch
 import openvino as ov
 
 MUSE_DIR = Path(os.getenv("MUSETALK_DIR", r"C:\Users\minim\MuseTalk"))
@@ -9,6 +10,7 @@ MODELS_DIR = MUSE_DIR / "models"
 UNET_XML = MODELS_DIR / "openvino_unet_fp16.xml"
 VAE_ENCODER_XML = MODELS_DIR / "openvino_vae_encoder.xml"
 VAE_DECODER_XML = MODELS_DIR / "openvino_vae_decoder.xml"
+VAE_WEIGHTS = MODELS_DIR / "sd-vae" / "diffusion_pytorch_model.bin"
 SCALING_FACTOR = 0.18215
 
 class OpenVINOBackend:
@@ -28,6 +30,7 @@ class OpenVINOBackend:
         self.vae_encoder = self.core.compile_model(VAE_ENCODER_XML, self.device)
         self.vae_decoder = self.core.compile_model(VAE_DECODER_XML, self.device)
         self._unet_inputs = {self._input_name(p): p for p in self.unet.inputs}
+        self._load_vae_1x1_convs()
 
     @staticmethod
     def _input_name(port):
@@ -51,12 +54,32 @@ class OpenVINOBackend:
             "vae_decoder_output": str(self.vae_decoder.output(0).get_partial_shape()),
         }
 
+    def _load_vae_1x1_convs(self):
+        """Load only Diffusers AutoencoderKL quant/post-quant 1x1 conv weights."""
+        if not VAE_WEIGHTS.is_file():
+            raise RuntimeError(f"VAE weights not found: {VAE_WEIGHTS}")
+        state = torch.load(VAE_WEIGHTS, map_location="cpu")
+        def get(name):
+            value = state.get(name)
+            if value is None:
+                raise RuntimeError(f"Missing VAE weight: {name}")
+            return value.detach().cpu().numpy().astype(np.float32)
+        self.quant_w = get("quant_conv.weight")
+        self.quant_b = get("quant_conv.bias")
+        self.post_quant_w = get("post_quant_conv.weight")
+        self.post_quant_b = get("post_quant_conv.bias")
+        del state
+
+    @staticmethod
+    def _conv1x1(x, weight, bias):
+        return np.einsum("oc,bchw->bohw", weight[:, :, 0, 0], x) + bias[None, :, None, None]
+
     def encode(self, image):
         image = np.asarray(image, dtype=np.float32)
         output = self.vae_encoder({self.vae_encoder.input(0): image})[self.vae_encoder.output(0)]
         if output.ndim != 4 or output.shape[1] != 8:
             raise RuntimeError(f"Unexpected VAE encoder output shape: {output.shape}")
-        return output
+        return self._conv1x1(output, self.quant_w, self.quant_b)
 
     @staticmethod
     def posterior_sample(encoder_output, rng=None):
@@ -80,6 +103,7 @@ class OpenVINOBackend:
         if latents.ndim != 4 or latents.shape[1] != 4:
             raise ValueError(f"Expected [B,4,H,W] latents, got {latents.shape}")
         unscaled = latents / SCALING_FACTOR
+        unscaled = self._conv1x1(unscaled, self.post_quant_w, self.post_quant_b)
         decoded = self.vae_decoder({self.vae_decoder.input(0): unscaled})[self.vae_decoder.output(0)]
         # MuseTalk blending expects uint8 BGR images in HWC layout.
         # The OpenVINO export returns float RGB tensors in NCHW layout.

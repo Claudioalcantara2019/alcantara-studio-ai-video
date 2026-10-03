@@ -109,7 +109,9 @@ def main():
 
     print("OpenVINO outputs:")
     for out in ov_model.outputs:
-        print(" ", out.any_name, out.partial_shape, out.element_type)
+        names = list(out.get_names())
+        name = names[0] if names else "<sem-nome>"
+        print(" ", name, out.partial_shape, out.element_type)
 
     # Save as FP16 weights for Intel GPU execution.
     print("Saving FP16 OpenVINO model...")

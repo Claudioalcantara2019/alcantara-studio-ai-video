@@ -1,10 +1,11 @@
 """
 Re-export MuseTalk v1.5 UNet for OpenVINO.
 
-This script intentionally builds the UNet from the official MuseTalk v1.5
-config + checkpoint instead of converting a previously exported OpenVINO file.
+Run this script with the dedicated openvino-converter Python environment.
+The MuseTalk runtime environment is intentionally not modified.
 
-Output files are written under the local MuseTalk models directory.
+This script builds the UNet from the official MuseTalk v1.5 config +
+checkpoint instead of converting a previously exported OpenVINO file.
 """
 
 from pathlib import Path
@@ -40,9 +41,17 @@ class MuseTalkUNetWrapper(torch.nn.Module):
 
 def main():
     print("=== MuseTalk v1.5 -> OpenVINO UNet v2 ===")
+    print(f"PyTorch: {torch.__version__}")
+    print(f"OpenVINO: {ov.__version__}")
     print(f"Config : {CONFIG_PATH}")
     print(f"Weights: {WEIGHTS_PATH}")
     print(f"Output : {OUTPUT_PATH}")
+
+    if not hasattr(torch, "float8_e4m3fn"):
+        raise RuntimeError(
+            "This converter requires a newer PyTorch with float8_e4m3fn. "
+            "Run it with the dedicated openvino-converter environment."
+        )
 
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(CONFIG_PATH)
